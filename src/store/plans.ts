@@ -1,5 +1,6 @@
 import { createStore } from "zustand/vanilla";
 import { createId } from "@/lib/create-id";
+import { itemsForEvent } from "@/lib/calc/balance";
 import { clearPlans, loadPlanData, savePlanData, validateBalances } from "@/lib/storage/local";
 import { createPlanSync, type CloudConnection, type SyncPhase } from "@/lib/storage/plan-sync";
 import type { PlanData } from "@/types/plan-data";
@@ -19,6 +20,7 @@ export type PlanStore = {
   hydrate: () => void;
   createPlan: (name: string, source?: Partial<Pick<Scenario, "events" | "items" | "taxMode" | "customTaxBasisPoints" | "monthScope">>) => string;
   updatePlan: (id: string, update: Update) => string | null;
+  moveItemToEvent: (planId: string, itemId: string, eventId: string) => string | null;
   removePlan: (id: string) => void;
   importData: (incoming: PlanData) => { added: number; skipped: number; balanceAdded: boolean };
   setCurrentBalance: (amount: Won | undefined) => void;
@@ -96,6 +98,16 @@ export function createPlansStore(cloud?: CloudConnection) {
         return null;
       },
       removePlan: (id) => commitScenarios(get().data.scenarios.filter((scenario) => scenario.id !== id)),
+      moveItemToEvent: (planId, itemId, eventId) => get().updatePlan(planId, (plan) => {
+        const item = plan.items.find(({ id }) => id === itemId);
+        if (!item || item.afterEventId === eventId) return plan;
+        const orders = new Map(itemsForEvent(plan.items, eventId).map(({ id }, order) => [id, order]));
+        return { ...plan, items: plan.items.map((entry) => {
+          if (entry.id === itemId) return { ...entry, afterEventId: eventId, order: orders.size };
+          const order = orders.get(entry.id);
+          return order === undefined ? entry : { ...entry, order };
+        }) };
+      }),
       importData: (incoming) => {
         const { scenarios, currentBalance } = get().data;
         const existingIds = new Set(scenarios.map(({ id }) => id));

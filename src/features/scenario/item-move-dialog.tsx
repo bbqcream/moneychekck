@@ -27,7 +27,7 @@ export function ItemMoveDialog({ item, events, onMove, onClose }: {
         <p className="muted">{item.label}</p>
         <label className="field">이동할 입금
           <select name="eventId" required>
-            {destinations.map(({ id, label, date }) => <option key={id} value={id}>{label} · {date ?? "시기 미정"}</option>)}
+            {destinations.map(({ id, label, date }) => <option key={id} value={id}>{label} · {date ?? "날짜 미정"}</option>)}
           </select>
         </label>
         <FormActions error={error} onCancel={onClose} label="이동" />

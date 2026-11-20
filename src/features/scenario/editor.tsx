@@ -30,6 +30,7 @@ type EditorDialog =
 
 export function Editor({ scenario, month, focusMonth }: { scenario: Scenario; month: string; focusMonth?: string }) {
   const updatePlan = usePlans((state) => state.updatePlan);
+  const moveToEvent = usePlans((state) => state.moveItemToEvent);
   const removePlan = usePlans((state) => state.removePlan);
   const [dialog, setDialog] = useState<EditorDialog | null>(null);
   const [error, setError] = useState("");
@@ -80,22 +81,6 @@ export function Editor({ scenario, month, focusMonth }: { scenario: Scenario; mo
     if (issue) setError(issue);
   }
 
-  function moveItemToEvent(item: Item, eventId: string) {
-    return update((plan) => {
-      const current = plan.items.find(({ id }) => id === item.id);
-      if (!current || current.afterEventId === eventId) return plan;
-      const orders = new Map(itemsForEvent(plan.items, eventId).map(({ id }, order) => [id, order]));
-      return {
-        ...plan,
-        items: plan.items.map((entry) => {
-          if (entry.id === current.id) return { ...entry, afterEventId: eventId, order: orders.size };
-          const order = orders.get(entry.id);
-          return order === undefined ? entry : { ...entry, order };
-        }),
-      };
-    });
-  }
-
   return (
     <>
       <a className="back-link" href={focusMonth ? "#/?month=" + focusMonth : "#/"}>월별 계획으로</a>
@@ -144,7 +129,7 @@ export function Editor({ scenario, month, focusMonth }: { scenario: Scenario; mo
               editItem: (event, item) => setDialog({ type: "item", event, item }),
               deleteItem: (item) => setDialog({ type: "delete-item", item }),
               moveItem,
-              moveItemToEvent,
+              moveItemToEvent: (item, eventId) => moveToEvent(scenario.id, item.id, eventId),
             }} />
           ) : (
             <div className="empty-panel">

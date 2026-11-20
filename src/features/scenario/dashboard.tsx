@@ -25,6 +25,7 @@ const planLink = (id: string) => "#/scenarios/" + id;
 export function Dashboard({ month, setMonth }: { month: string; setMonth: (month: string) => void }) {
   const data = usePlans((state) => state.data);
   const createPlan = usePlans((state) => state.createPlan);
+  const moveToEvent = usePlans((state) => state.moveItemToEvent);
   const clear = usePlans((state) => state.clear);
   const importData = usePlans((state) => state.importData);
   const issue = usePlans((state) => state.storageIssue);
@@ -33,6 +34,7 @@ export function Dashboard({ month, setMonth }: { month: string; setMonth: (month
   const [importStatus, setImportStatus] = useState("");
   const { base, details } = getMonthlyWorkspace(data.scenarios, month);
   const timeline = base && calculateTimeline(base);
+  const monthGroups = base && timeline ? timeline.groups.filter(({ event }) => eventPlanningMonth(base, event) === month) : [];
   const pending = base?.events.filter((event) => event.date === null && eventPlanningMonth(base, event) === month) ?? [];
   const close = () => setDialog(null);
 
@@ -73,7 +75,8 @@ export function Dashboard({ month, setMonth }: { month: string; setMonth: (month
         <MonthlyOverview timeline={timeline} month={month} setMonth={setMonth} pending={pending} />
         <CurrentBalanceCard />
       </div>
-      <MonthlySpending timeline={timeline} month={month} onEdit={editMonthlyPlan} />
+      <MonthlySpending key={month + (base?.id ?? "")} groups={monthGroups} onEdit={editMonthlyPlan}
+        onMove={(item, eventId) => base ? moveToEvent(base.id, item.id, eventId) : "월별 기본 계획을 찾을 수 없어요."} />
       <section className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-label="고정 월급·지출·저축">
         <MonthlySalaryCard key={"salary-" + base?.id} scenario={base} month={month} />
         <MonthlyRules key={"expense-" + base?.id} scenario={base} kind="expense" />
