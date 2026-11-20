@@ -24,6 +24,7 @@ export type MonthlyRule = { id: string; label: string; rates: MonthlyRate[]; pri
 export type SavingsAllocation = { savingsPercent: number; savingsLabel: string; investmentLabel: string };
 export type MonthlySaving = MonthlyRule & { allocation: SavingsAllocation };
 export type MonthlyRuleKind = "expense" | "saving";
+export type MonthlySalary = { label: string; amount: Won; day: number; startMonth: string; endMonth: string };
 
 export type Item = {
   id: string;
@@ -44,6 +45,7 @@ export type Scenario = {
   name: string;
   events: PayEvent[];
   items: Item[];
+  monthlySalary?: MonthlySalary;
   monthlyExpenses?: MonthlyRule[];
   monthlySavings?: MonthlySaving[];
   taxMode: TaxMode;

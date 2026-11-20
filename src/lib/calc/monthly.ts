@@ -1,7 +1,36 @@
-import type { Item, MonthlyRule, PayEvent, RangeAmount, Scenario } from "@/types/scenario";
+import type { Item, MonthlyRule, MonthlySalary, PayEvent, RangeAmount, Scenario } from "@/types/scenario";
 
 export function isMonth(value: string): boolean {
   return /^\d{4}-(0[1-9]|1[0-2])$/.test(value) && !value.startsWith("0000");
+}
+
+export const maxSalaryMonths = 120;
+
+export function isSalaryPeriod(startMonth: string, endMonth: string) {
+  if (!isMonth(startMonth) || !isMonth(endMonth) || startMonth > endMonth) return false;
+  const monthIndex = (month: string) => Number(month.slice(0, 4)) * 12 + Number(month.slice(5));
+  return monthIndex(endMonth) - monthIndex(startMonth) < maxSalaryMonths;
+}
+
+export function monthlySalaryEvents(salary?: MonthlySalary): PayEvent[] {
+  if (!salary) return [];
+  const events: PayEvent[] = [];
+  const month = new Date(salary.startMonth + "-01T00:00:00Z");
+  const last = new Date(salary.endMonth + "-01T00:00:00Z");
+  for (; month <= last; month.setUTCMonth(month.getUTCMonth() + 1)) {
+    const yearMonth = month.toISOString().slice(0, 7);
+    const monthEnd = new Date(month);
+    monthEnd.setUTCMonth(month.getUTCMonth() + 1, 0);
+    const day = String(Math.min(salary.day, monthEnd.getUTCDate())).padStart(2, "0");
+    events.push({
+      id: "monthly-salary:" + yearMonth,
+      label: salary.label,
+      date: yearMonth + "-" + day,
+      amount: { min: salary.amount, max: salary.amount },
+      certainty: "confirmed",
+    });
+  }
+  return events;
 }
 
 export function splitSavingsAmount(amount: RangeAmount, savingsPercent: number) {

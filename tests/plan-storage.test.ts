@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { calculateTimeline } from "@/lib/calc/balance";
 import { parsePlanDocument, serializePlanData } from "@/lib/storage/local";
 import { createPlanSync, type CloudConnection, type Draft, type Snapshot } from "@/lib/storage/plan-sync";
 import { accountConnection } from "@/lib/storage/supabase";
@@ -42,6 +43,22 @@ function testCloud(initial: Snapshot) {
 
 describe("계획 백업", () => {
   const currentBalance = { amount: 123456, recordedAt: "2026-11-20T00:00:00.000Z" };
+
+  it("고정 월급 설정과 연결 항목을 백업하고 잘못된 기간과 지급일을 거절한다", () => {
+    const monthlySalary = { label: "월급", amount: 960000, day: 10, startMonth: "2026-12", endMonth: "2027-01" };
+    const plan = { ...paycheck, events: [], items: [], monthlySalary };
+    const [first, second] = calculateTimeline(plan).groups;
+    const withItem = { ...plan, items: [{ ...paycheck.items[0], afterEventId: second.event.id }] };
+    expect(parsePlanDocument(serializePlanData({ scenarios: [withItem] })).scenarios).toEqual([withItem]);
+    for (const invalid of [{ day: 32 }, { startMonth: "2027-02" }, { amount: 100.5 }, { endMonth: "9999-12" }]) {
+      const scenario = { ...plan, monthlySalary: { ...monthlySalary, ...invalid } };
+      expect(() => parsePlanDocument(serializePlanData({ scenarios: [scenario] }))).toThrow();
+    }
+    const shortened = { ...withItem, monthlySalary: { ...monthlySalary, endMonth: "2026-12" } };
+    expect(() => parsePlanDocument(serializePlanData({ scenarios: [shortened] }))).toThrow();
+    const duplicate = { ...plan, events: [first.event] };
+    expect(() => parsePlanDocument(serializePlanData({ scenarios: [duplicate] }))).toThrow();
+  });
 
   it("입금 메모, 월 고정지출과 고정저축, 우선순위와 현재 잔고를 한 번에 가져온다", () => {
     const plan = {

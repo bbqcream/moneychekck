@@ -32,7 +32,8 @@ export function analyzeSavings(scenario: Scenario, reserveWon: Won) {
     limitWon: !hasShortfall && remaining > 0n ? Number(remaining) : 0,
     hasShortfall,
   };
-  return { budget, confirmedCount: groups.length, excludedCount: scenario.events.length - groups.length };
+  const excludedCount = scenario.events.filter(({ certainty }) => certainty === "uncertain").length;
+  return { budget, confirmedCount: groups.length, excludedCount };
 }
 
 export function advicePercentages(advice: SavingsAdvice) {

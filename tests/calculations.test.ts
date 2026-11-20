@@ -7,6 +7,7 @@ import { formatManwon, parseManwon, parseRange } from "@/lib/calc/money";
 import { applyTax, parseTaxRate } from "@/lib/calc/tax";
 import { calculateWorkPay, countWorkdays, parseWorkHours } from "@/lib/calc/work-pay";
 import { formatMemo } from "@/features/export/memo";
+import { analyzeSavings } from "@/lib/calc/savings-advice";
 import type { PayEvent } from "@/types/scenario";
 import { paycheck } from "./fixtures/paycheck";
 
@@ -19,6 +20,30 @@ const grant: PayEvent = {
 };
 
 describe("잔액 타임라인", () => {
+  it("월급을 지정한 달마다 확실한 입금으로 반영하고 짧은 달에는 말일에 넣는다", () => {
+    const scenario = {
+      ...paycheck, events: [grant], items: [],
+      monthlySalary: { label: "회사 월급", amount: 960000, day: 31, startMonth: "2027-12", endMonth: "2028-03" },
+      monthlyExpenses: [{ id: "transport", label: "교통비", rates: [{ startMonth: "2027-12", amount: { min: 60000, max: 60000 } }] }],
+    };
+    const { groups, finalBalance } = calculateTimeline(scenario, "confirmed");
+    expect(groups.map(({ event }) => event.date)).toEqual(["2027-12-31", "2028-01-31", "2028-02-29", "2028-03-31"]);
+    expect(groups.map(({ items }) => items[0].balance.worst)).toEqual([900000, 1800000, 2700000, 3600000]);
+    expect(finalBalance.worst).toBe(3600000);
+    expect(analyzeSavings(scenario, 0)).toMatchObject({ confirmedCount: 4, excludedCount: 1 });
+  });
+
+  it("월급 날짜와 금액을 바꿔도 같은 달 입금에 연결한 항목은 유지한다", () => {
+    const monthlySalary = { label: "월급", amount: 100000, day: 25, startMonth: "2026-12", endMonth: "2026-12" };
+    const scenario = { ...paycheck, events: [], items: [], monthlySalary };
+    const [{ event }] = calculateTimeline(scenario).groups;
+    const items = [{ ...paycheck.items[0], afterEventId: event.id, amount: { min: 50000, max: 50000 } }];
+    const changed = calculateTimeline({ ...scenario, items, monthlySalary: { ...monthlySalary, amount: 200000, day: 10 } });
+    expect(changed.groups[0].event.date).toBe("2026-12-10");
+    expect(changed.groups[0].items[0].item).toEqual(items[0]);
+    expect(changed.finalBalance.worst).toBe(150000);
+  });
+
   it("월 고정저축을 저축과 투자로 나누고 한 달에 한 번만 반영한다", () => {
     const first = paycheck.events[0];
     const second = { ...first, id: "bonus", date: "2026-11-30" };

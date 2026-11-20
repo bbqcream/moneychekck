@@ -1,8 +1,8 @@
 import { calculateTimeline } from "@/lib/calc/balance";
-import { isMonth } from "@/lib/calc/monthly";
+import { isMonth, isSalaryPeriod } from "@/lib/calc/monthly";
 import { parseCalendarDate } from "@/lib/calc/work-pay";
 import type { CurrentBalance, PlanData } from "@/types/plan-data";
-import { isSpendingPriority, itemKinds, type Item, type MonthlyRate, type MonthlyRule, type MonthlySaving, type PayEvent, type RangeAmount, type Scenario } from "@/types/scenario";
+import { isSpendingPriority, itemKinds, type Item, type MonthlyRate, type MonthlyRule, type MonthlySalary, type MonthlySaving, type PayEvent, type RangeAmount, type Scenario } from "@/types/scenario";
 
 const storageKey = "payplan:v1";
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -54,6 +54,13 @@ function isMonthlySaving(value: unknown): value is MonthlySaving {
     isText(allocation.savingsLabel) && isText(allocation.investmentLabel);
 }
 
+function isMonthlySalary(value: unknown): value is MonthlySalary {
+  return isRecord(value) && isText(value.label) && isUnsignedInteger(value.amount) && value.amount > 0 &&
+    isUnsignedInteger(value.day) && value.day >= 1 && value.day <= 31 &&
+    typeof value.startMonth === "string" && typeof value.endMonth === "string" &&
+    isSalaryPeriod(value.startMonth, value.endMonth);
+}
+
 function isScenario(value: unknown): value is Scenario {
   if (!isRecord(value) || typeof value.id !== "string" || !/^[a-z\d_-]+$/i.test(value.id) || !isText(value.name) ||
     !isText(value.createdAt) || !Number.isFinite(Date.parse(value.createdAt)) ||
@@ -70,9 +77,7 @@ function isScenario(value: unknown): value is Scenario {
   const savings = value.monthlySavings;
   if (savings !== undefined &&
     (!Array.isArray(savings) || !savings.every(isMonthlySaving) || !hasUniqueIds(savings))) return false;
-  const eventIds = new Set(value.events.map(({ id }) => id));
-  return eventIds.size === value.events.length && hasUniqueIds(value.items) &&
-    value.items.every((item) => eventIds.has(item.afterEventId));
+  return (value.monthlySalary === undefined || isMonthlySalary(value.monthlySalary)) && hasUniqueIds(value.items);
 }
 
 function isCurrentBalance(value: unknown): value is CurrentBalance {
@@ -84,7 +89,12 @@ export const planDocument = (data: PlanData) => ({ version: 1, ...data });
 export const serializePlanData = (data: PlanData) => JSON.stringify(planDocument(data), null, 2);
 
 export function validateBalances(scenario: Scenario) {
-  calculateTimeline(scenario);
+  const { groups } = calculateTimeline(scenario);
+  const eventIds = new Set(groups.map(({ event }) => event.id));
+  if (eventIds.size !== groups.length) throw new RangeError("중복된 입금이 있어요.");
+  if (scenario.items.some(({ afterEventId }) => !eventIds.has(afterEventId))) {
+    throw new RangeError("연결된 항목이 있는 입금이 있어요. 해당 항목을 먼저 삭제해 주세요.");
+  }
   calculateTimeline(scenario, "confirmed");
 }
 

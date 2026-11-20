@@ -1,12 +1,12 @@
 import type { IncomeFilter, Item, PayEvent, RangeAmount, Scenario, Won } from "@/types/scenario";
 import { checkedWon, formatManwon } from "./money";
 import { totalItemAmount } from "./range";
-import { monthlyItems } from "./monthly";
+import { monthlyItems, monthlySalaryEvents } from "./monthly";
 import { applyTax } from "./tax";
 
 export type Balance = { best: Won; worst: Won; shortage: boolean };
 export type TimelineItem = { item: Item; amount: RangeAmount; balance: Balance; monthlyRuleId?: string };
-export type TimelineGroup = { event: PayEvent; amount: RangeAmount; balance: Balance; items: TimelineItem[] };
+export type TimelineGroup = { event: PayEvent; amount: RangeAmount; balance: Balance; items: TimelineItem[]; monthlySalary?: true };
 export type Timeline = { groups: TimelineGroup[]; finalBalance: Balance };
 
 export function formatBalance(balance: { best: number | bigint; worst: number | bigint }, signed = false): string {
@@ -19,7 +19,9 @@ export function itemsForEvent(items: Item[], eventId: string): Item[] {
 }
 
 export function calculateTimeline(scenario: Scenario, filter: IncomeFilter = "all"): Timeline {
-  const events = scenario.events
+  const salaryEvents = monthlySalaryEvents(scenario.monthlySalary);
+  const salaryIds = new Set(salaryEvents.map(({ id }) => id));
+  const events = [...scenario.events, ...salaryEvents]
     .filter((event) => filter === "all" || event.certainty === "confirmed")
     .sort((a, b) => (a.date ?? "9999-12-32").localeCompare(b.date ?? "9999-12-32"));
   const fixed = scenario.monthlyExpenses?.length || scenario.monthlySavings?.length
@@ -46,7 +48,9 @@ export function calculateTimeline(scenario: Scenario, filter: IncomeFilter = "al
       worst -= BigInt(total.max);
       return { item, amount: total, balance: balance(), monthlyRuleId };
     });
-    return { event, amount, balance: afterIncome, items };
+    const group: TimelineGroup = { event, amount, balance: afterIncome, items };
+    if (salaryIds.has(event.id)) group.monthlySalary = true;
+    return group;
   });
 
   return { groups, finalBalance: balance() };
