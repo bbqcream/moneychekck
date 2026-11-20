@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { createId } from "@/lib/create-id";
 import { clearPlans, loadPlans, savePlans, validateBalances } from "@/lib/storage/local";
 import type { Scenario } from "@/types/scenario";
 
@@ -43,7 +44,7 @@ export const usePlans = create<PlanStore>((set, get) => {
       }
     },
     createPlan: (name, source) => {
-      const id = crypto.randomUUID();
+      const id = createId();
       const now = new Date().toISOString();
       const scenario: Scenario = {
         events: [], items: [], taxMode: "none", ...source, id, name, createdAt: now, updatedAt: now,

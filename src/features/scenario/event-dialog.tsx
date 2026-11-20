@@ -4,6 +4,7 @@ import { FormActions } from "@/components/form-actions";
 import { RangeFields } from "@/components/range-fields";
 import { parseRange } from "@/lib/calc/money";
 import { parseCalendarDate } from "@/lib/calc/work-pay";
+import { createId } from "@/lib/create-id";
 import type { PayEvent, RangeAmount } from "@/types/scenario";
 
 export function EventDialog({ event, draftAmount, onSave, onClose }: {
@@ -23,7 +24,7 @@ export function EventDialog({ event, draftAmount, onSave, onClose }: {
     if (date && !parseCalendarDate(date)) return setError("올바른 입금일을 입력해 주세요.");
     if (!amount) return setError("0 이상의 만원 금액을 입력해 주세요. 최대는 최소 이상이어야 해요.");
     const issue = onSave({
-      id: event?.id ?? crypto.randomUUID(),
+      id: event?.id ?? createId(),
       label,
       amount,
       date: date || null,

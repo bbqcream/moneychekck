@@ -3,6 +3,7 @@ import { Dialog } from "@/components/dialog";
 import { RangeFields } from "@/components/range-fields";
 import { FormActions } from "@/components/form-actions";
 import { parseRange, parseScaled } from "@/lib/calc/money";
+import { createId } from "@/lib/create-id";
 import { itemKinds, type Item, type Repetition } from "@/types/scenario";
 import { kindLabels } from "./labels";
 
@@ -29,7 +30,7 @@ export function ItemDialog({ item, eventLabel, onSave, onClose }: {
     if (!kind) return setError("항목 종류를 선택해 주세요.");
     if (!count) return setError("반복 횟수를 1 이상의 정수로 입력해 주세요.");
     const issue = onSave({
-      id: item?.id ?? crypto.randomUUID(),
+      id: item?.id ?? createId(),
       kind,
       label,
       note: note || undefined,
