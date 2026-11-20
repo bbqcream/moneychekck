@@ -1,5 +1,5 @@
 import * as holidays from "@hyunbinseo/holidays-kr/all";
-import type { Won } from "@/types/scenario";
+import type { HourlySalary, Won } from "@/types/scenario";
 import { checkedWon, parseScaled } from "./money";
 
 const dayMs = 86400000;
@@ -42,4 +42,38 @@ export function parseWorkHours(input: string): number | null {
 
 export function calculateWorkPay(days: number, hourHundredths: number, hourlyWon: Won): Won {
   return checkedWon((BigInt(days) * BigInt(hourHundredths) * BigInt(hourlyWon)) / 100n);
+}
+
+export function calculateHourlySalary(hourly: HourlySalary, paidMonth: string) {
+  const { hourHundredths, hourlyWon } = hourly;
+  if (!Number.isSafeInteger(hourHundredths) || hourHundredths < 1 || hourHundredths > 2400 ||
+    !Number.isSafeInteger(hourlyWon) || hourlyWon < 1) return null;
+
+  let days: number;
+  let workMonth: string | undefined;
+  let missingHolidays = false;
+  if (hourly.schedule === "manual") {
+    days = hourly.days;
+    if (!Number.isSafeInteger(days) || days < 1 || days > 31) return null;
+  } else {
+    const start = parseCalendarDate(paidMonth + "-01");
+    if (!start) return null;
+    if (hourly.schedule === "previous-month") start.setUTCMonth(start.getUTCMonth() - 1);
+    const from = start.toISOString().slice(0, 10);
+    const last = new Date(start);
+    last.setUTCMonth(last.getUTCMonth() + 1, 0);
+    const calendar = countWorkdays(from, last.toISOString().slice(0, 10));
+    if (!calendar) return null;
+    days = calendar.days;
+    workMonth = from.slice(0, 7);
+    missingHolidays = calendar.missingYears.length > 0;
+  }
+
+  try {
+    const amount = calculateWorkPay(days, hourHundredths, hourlyWon);
+    return amount > 0 ? { amount, days, workMonth, missingHolidays } : null;
+  } catch (error) {
+    if (error instanceof RangeError) return null;
+    throw error;
+  }
 }

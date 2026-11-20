@@ -44,6 +44,19 @@ function testCloud(initial: Snapshot) {
 describe("계획 백업", () => {
   const currentBalance = { amount: 123456, recordedAt: "2026-11-20T00:00:00.000Z" };
 
+  it("시급 월급의 계산 조건을 보관하고 저장 금액과 계산 결과가 다른 백업을 거절한다", () => {
+    const monthlySalary = {
+      label: "월급", amount: 960000, day: 10, startMonth: "2026-12", endMonth: "2027-01",
+      hourly: { schedule: "manual" as const, days: 16, hourHundredths: 600, hourlyWon: 10000 },
+    };
+    const plan = { ...paycheck, events: [], items: [], monthlySalary };
+    const decoded = parsePlanDocument(serializePlanData({ scenarios: [plan] })).scenarios[0];
+    expect(decoded.monthlySalary).toEqual(monthlySalary);
+    expect(calculateTimeline(decoded).groups.map(({ amount }) => amount.min)).toEqual([960000, 960000]);
+    const mismatch = { ...plan, monthlySalary: { ...monthlySalary, amount: 960001 } };
+    expect(() => parsePlanDocument(serializePlanData({ scenarios: [mismatch] }))).toThrow();
+  });
+
   it("고정 월급 설정과 연결 항목을 백업하고 잘못된 기간과 지급일을 거절한다", () => {
     const monthlySalary = { label: "월급", amount: 960000, day: 10, startMonth: "2026-12", endMonth: "2027-01" };
     const plan = { ...paycheck, events: [], items: [], monthlySalary };

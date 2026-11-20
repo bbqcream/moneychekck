@@ -6,7 +6,7 @@ import { summarizePriorities } from "@/lib/calc/priorities";
 import { compareTimelines } from "@/lib/calc/compare";
 import { formatManwon, parseManwon, parseRange } from "@/lib/calc/money";
 import { applyTax, parseTaxRate } from "@/lib/calc/tax";
-import { calculateWorkPay, countWorkdays, parseWorkHours } from "@/lib/calc/work-pay";
+import { calculateHourlySalary, calculateWorkPay, countWorkdays, parseWorkHours } from "@/lib/calc/work-pay";
 import { formatMemo } from "@/features/export/memo";
 import { analyzeSavings } from "@/lib/calc/savings-advice";
 import type { PayEvent } from "@/types/scenario";
@@ -240,6 +240,30 @@ describe("원 단위 입력과 세금", () => {
 });
 
 describe("근무수당", () => {
+  it("시급 월급은 수동 근무일수와 소수 시간으로 원 단위까지 계산한다", () => {
+    const hourly = { schedule: "manual", days: 16, hourHundredths: 600, hourlyWon: 10000 } as const;
+    expect(calculateHourlySalary(hourly, "2026-12")).toMatchObject({ amount: 960000, days: 16 });
+    expect(calculateHourlySalary({ ...hourly, days: 21, hourHundredths: 625, hourlyWon: 10123 }, "2026-12")?.amount).toBe(1328643);
+    for (const invalid of [{ days: 0 }, { days: 32 }, { hourHundredths: 2401 }, { hourlyWon: Number.MAX_SAFE_INTEGER }]) {
+      expect(calculateHourlySalary({ ...hourly, ...invalid }, "2026-12")).toBeNull();
+    }
+  });
+
+  it("전월 근무를 기준으로 월급을 계산하며 공휴일과 연도 변경을 반영한다", () => {
+    const hourly = { schedule: "previous-month", hourHundredths: 600, hourlyWon: 10000 } as const;
+    const first = calculateHourlySalary(hourly, "2027-01");
+    expect(first).toMatchObject({ days: 22, amount: 1320000, workMonth: "2026-12" });
+    expect(calculateHourlySalary(hourly, "2027-02")).toMatchObject({ days: 20, amount: 1200000, workMonth: "2027-01" });
+    expect(calculateHourlySalary({ ...hourly, schedule: "current-month" }, "2099-01")?.missingHolidays).toBe(true);
+    const { groups } = calculateTimeline({
+      ...paycheck, events: [], items: [],
+      monthlySalary: { label: "월급", amount: 1320000, day: 10, startMonth: "2027-01", endMonth: "2027-02", hourly },
+    });
+    expect(groups.map(({ event, amount }) => [event.date, amount.min])).toEqual([
+      ["2027-01-10", 1320000], ["2027-02-10", 1200000],
+    ]);
+  });
+
   it("16일 × 6시간 × 1만원은 96만원이다", () => {
     expect(calculateWorkPay(16, parseWorkHours("6")!, 10000)).toBe(960000);
     expect(calculateWorkPay(1, parseWorkHours("1.25")!, 10001)).toBe(12501);

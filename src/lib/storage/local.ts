@@ -1,6 +1,6 @@
 import { calculateTimeline } from "@/lib/calc/balance";
 import { isMonth, isSalaryPeriod } from "@/lib/calc/monthly";
-import { parseCalendarDate } from "@/lib/calc/work-pay";
+import { calculateHourlySalary, parseCalendarDate } from "@/lib/calc/work-pay";
 import type { CurrentBalance, PlanData } from "@/types/plan-data";
 import { isSpendingPriority, itemKinds, type Item, type MonthlyRate, type MonthlyRule, type MonthlySalary, type MonthlySaving, type PayEvent, type RangeAmount, type Scenario } from "@/types/scenario";
 
@@ -55,10 +55,20 @@ function isMonthlySaving(value: unknown): value is MonthlySaving {
 }
 
 function isMonthlySalary(value: unknown): value is MonthlySalary {
-  return isRecord(value) && isText(value.label) && isUnsignedInteger(value.amount) && value.amount > 0 &&
+  if (!(isRecord(value) && isText(value.label) && isUnsignedInteger(value.amount) && value.amount > 0 &&
     isUnsignedInteger(value.day) && value.day >= 1 && value.day <= 31 &&
     typeof value.startMonth === "string" && typeof value.endMonth === "string" &&
-    isSalaryPeriod(value.startMonth, value.endMonth);
+    isSalaryPeriod(value.startMonth, value.endMonth))) return false;
+  const hourly = value.hourly;
+  if (hourly === undefined) return true;
+  if (!isRecord(hourly) || !isUnsignedInteger(hourly.hourHundredths) || !isUnsignedInteger(hourly.hourlyWon)) return false;
+  const { hourHundredths, hourlyWon, schedule } = hourly;
+  if (schedule === "manual") {
+    return isUnsignedInteger(hourly.days) &&
+      calculateHourlySalary({ schedule, days: hourly.days, hourHundredths, hourlyWon }, value.startMonth)?.amount === value.amount;
+  }
+  return (schedule === "current-month" || schedule === "previous-month") &&
+    calculateHourlySalary({ schedule, hourHundredths, hourlyWon }, value.startMonth) !== null;
 }
 
 function isScenario(value: unknown): value is Scenario {

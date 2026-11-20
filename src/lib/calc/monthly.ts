@@ -1,4 +1,5 @@
 import type { Item, MonthlyRule, MonthlySalary, PayEvent, RangeAmount, Scenario } from "@/types/scenario";
+import { calculateHourlySalary } from "./work-pay";
 
 export function isMonth(value: string): boolean {
   return /^\d{4}-(0[1-9]|1[0-2])$/.test(value) && !value.startsWith("0000");
@@ -22,13 +23,21 @@ export function monthlySalaryEvents(salary?: MonthlySalary): PayEvent[] {
     const monthEnd = new Date(month);
     monthEnd.setUTCMonth(month.getUTCMonth() + 1, 0);
     const day = String(Math.min(salary.day, monthEnd.getUTCDate())).padStart(2, "0");
-    events.push({
+    const pay = salary.hourly && calculateHourlySalary(salary.hourly, yearMonth);
+    if (pay === null) throw new RangeError("시급으로 계산한 월급이 유효한 범위를 벗어났어요.");
+    const amount = pay?.amount ?? salary.amount;
+    const event: PayEvent = {
       id: "monthly-salary:" + yearMonth,
       label: salary.label,
       date: yearMonth + "-" + day,
-      amount: { min: salary.amount, max: salary.amount },
+      amount: { min: amount, max: amount },
       certainty: "confirmed",
-    });
+    };
+    if (pay) {
+      const period = pay.workMonth ? pay.workMonth + " 근무" : "월 근무";
+      event.note = `${period} ${pay.days}일` + (pay.missingHolidays ? " · 공휴일 자료가 없어 주말만 제외" : "");
+    }
+    events.push(event);
   }
   return events;
 }
