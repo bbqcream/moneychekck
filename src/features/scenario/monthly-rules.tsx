@@ -7,9 +7,9 @@ import type { MonthlyRule, MonthlyRuleKind, MonthlySaving, RangeAmount, SavingsA
 import { monthlyRuleLabels, priorityLabels } from "./labels";
 import { MonthlyRuleDialog } from "./monthly-rule-dialog";
 
-type RuleDialog = { type: "edit"; rule?: MonthlyRule | MonthlySaving } | { type: "delete"; rule: MonthlyRule };
+type RuleDialog = { type: "edit"; rule?: MonthlyRule | MonthlySaving } | { type: "delete"; rule: MonthlyRule | MonthlySaving };
 
-function saveToList<T extends MonthlyRule>(list: T[] = [], rule: T): T[] {
+function saveToList<T extends { id: string }>(list: T[] = [], rule: T): T[] {
   return list.some(({ id }) => id === rule.id)
     ? list.map((current) => current.id === rule.id ? rule : current)
     : [...list, rule];
@@ -36,15 +36,14 @@ export function MonthlyRules({ scenario, kind, collapsible = false }: {
   }
   const { id } = scenario;
 
-  function save(rule: MonthlyRule, allocation?: SavingsAllocation) {
-    if (saving && !allocation) return "저축과 투자 비율을 확인해 주세요.";
-    return updatePlan(id, (plan) => allocation
-      ? { ...plan, monthlySavings: saveToList(plan.monthlySavings, { ...rule, allocation }) }
+  function save(rule: MonthlyRule | MonthlySaving) {
+    return updatePlan(id, (plan) => "allocation" in rule
+      ? { ...plan, monthlySavings: saveToList(plan.monthlySavings, rule) }
       : { ...plan, monthlyExpenses: saveToList(plan.monthlyExpenses, rule) });
   }
 
   function remove(ruleId: string) {
-    const keep = ({ id }: MonthlyRule) => id !== ruleId;
+    const keep = ({ id }: { id: string }) => id !== ruleId;
     return updatePlan(id, (plan) => saving
       ? { ...plan, monthlySavings: plan.monthlySavings?.filter(keep) }
       : { ...plan, monthlyExpenses: plan.monthlyExpenses?.filter(keep) }) ?? undefined;
@@ -65,10 +64,12 @@ export function MonthlyRules({ scenario, kind, collapsible = false }: {
                   <h3>{rule.label}</h3>
                   {rule.priority && <span className="badge badge-kind">{priorityLabels[rule.priority]}</span>}
                 </div>
-                {[...rule.rates].sort((a, b) => a.startMonth.localeCompare(b.startMonth)).map(({ startMonth, amount }) => (
-                  <div key={startMonth} className="my-1">
-                    <p className="meta">{startMonth}부터 월 {formatRange(amount)}만원</p>
-                    {allocation && <AllocationAmounts amount={amount} allocation={allocation} />}
+                {[...rule.rates].sort((a, b) => a.startMonth.localeCompare(b.startMonth)).map((rate) => (
+                  <div key={rate.startMonth} className="my-1">
+                    {"salaryPercent" in rate ? <p className="meta">{rate.startMonth}부터 세후 고정 월급의 {rate.salaryPercent}%</p> :
+                      <p className="meta">{rate.startMonth}부터 월 {formatRange(rate.amount)}만원</p>}
+                    {allocation && ("amount" in rate ? <AllocationAmounts amount={rate.amount} allocation={allocation} /> :
+                      <p className="meta">저축 {allocation.savingsPercent}% · 투자 {100 - allocation.savingsPercent}%</p>)}
                   </div>
                 ))}
                 <div className="button-row">

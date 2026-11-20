@@ -5,18 +5,18 @@ import { RangeFields } from "@/components/range-fields";
 import { isMonth } from "@/lib/calc/monthly";
 import { parseRange, parseScaled } from "@/lib/calc/money";
 import { createId } from "@/lib/create-id";
-import { isSpendingPriority, type MonthlyRate, type MonthlyRule, type MonthlyRuleKind, type MonthlySaving, type SavingsAllocation } from "@/types/scenario";
+import { isSpendingPriority, type MonthlyRule, type MonthlyRuleKind, type MonthlySaving, type MonthlySavingRate, type SavingsAllocation } from "@/types/scenario";
 import { monthlyRuleLabels } from "./labels";
 import { PriorityField } from "./priority-field";
 
 export function MonthlyRuleDialog({ kind, rule, onSave, onClose }: {
   kind: MonthlyRuleKind;
   rule?: MonthlyRule | MonthlySaving;
-  onSave: (rule: MonthlyRule, allocation?: SavingsAllocation) => string | null;
+  onSave: (rule: MonthlyRule | MonthlySaving) => string | null;
   onClose: () => void;
 }) {
-  const [rows, setRows] = useState<{ key: number; rate?: MonthlyRate }[]>(() =>
-    rule ? rule.rates.map((rate, key) => ({ key, rate })) : [{ key: 0 }],
+  const [rows, setRows] = useState<{ key: number; rate?: MonthlySavingRate; bySalary?: boolean }[]>(() =>
+    rule ? rule.rates.map((rate, key) => ({ key, rate, bySalary: "salaryPercent" in rate })) : [{ key: 0 }],
   );
   const initialAllocation = rule && "allocation" in rule ? rule.allocation : undefined;
   const [ratioInput, setRatioInput] = useState(String(initialAllocation?.savingsPercent ?? 100));
@@ -34,7 +34,7 @@ export function MonthlyRuleDialog({ kind, rule, onSave, onClose }: {
     const starts = data.getAll("startMonth");
     const mins = data.getAll("min");
     const maxes = data.getAll("max");
-    const rates: MonthlyRate[] = [];
+    const rates: MonthlySavingRate[] = [];
     if (!label) return setError(title + " 이름을 입력해 주세요.");
     let allocation: SavingsAllocation | undefined;
     if (saving) {
@@ -44,20 +44,30 @@ export function MonthlyRuleDialog({ kind, rule, onSave, onClose }: {
       if (!savingsLabel || !investmentLabel) return setError("저축과 투자 목적을 입력해 주세요.");
       allocation = { savingsPercent, savingsLabel, investmentLabel };
     }
+    let fixedIndex = 0;
     for (const [index, start] of starts.entries()) {
       const startMonth = String(start).trim();
-      const amount = parseRange(String(mins[index] ?? ""), String(maxes[index] ?? ""));
-      if (!isMonth(startMonth) || !amount) return setError("올바른 적용 시작월과 월 금액을 입력해 주세요.");
-      rates.push({ startMonth, amount });
+      if (!isMonth(startMonth)) return setError("올바른 적용 시작월을 입력해 주세요.");
+      if (rows[index].bySalary) {
+        const salaryPercent = parseScaled(String(data.get("salaryPercent-" + rows[index].key) ?? ""), 0);
+        if (salaryPercent === null || salaryPercent > 100) return setError("월급에서 모을 비율을 0~100 사이의 정수로 입력해 주세요.");
+        rates.push({ startMonth, salaryPercent });
+      } else {
+        const amount = parseRange(String(mins[fixedIndex] ?? ""), String(maxes[fixedIndex] ?? ""));
+        if (!amount) return setError("올바른 월 금액을 입력해 주세요.");
+        rates.push({ startMonth, amount });
+        fixedIndex++;
+      }
     }
     if (new Set(rates.map(({ startMonth }) => startMonth)).size !== rates.length) {
       return setError("각 변경의 적용 시작월을 다르게 입력해 주세요.");
     }
     rates.sort((a, b) => a.startMonth.localeCompare(b.startMonth));
-    const issue = onSave({
-      id: rule?.id ?? createId(), label, rates,
+    const fields = {
+      id: rule?.id ?? createId(), label,
       priority: isSpendingPriority(priority) ? priority : undefined,
-    }, allocation);
+    };
+    const issue = onSave(allocation ? { ...fields, rates, allocation } : { ...fields, rates: rates.filter((rate) => "amount" in rate) });
     if (issue) setError(issue);
     else onClose();
   }
@@ -89,10 +99,22 @@ export function MonthlyRuleDialog({ kind, rule, onSave, onClose }: {
             </div>
           </>
         )}
-        {rows.map(({ key, rate }) => (
+        {rows.map(({ key, rate, bySalary }) => (
           <div className="form-stack rounded-xl border border-line p-3" key={key}>
             <label className="field">적용 시작월<input type="month" name="startMonth" placeholder="YYYY-MM" defaultValue={rate?.startMonth} required /></label>
-            <RangeFields amount={rate?.amount} label={saving ? "매달 모을 총액" : "월 금액"} />
+            {saving && <label className="field">매달 모을 금액 계산 방식
+              <select value={bySalary ? "salary" : "fixed"} onChange={(event) => {
+                const bySalary = event.target.value === "salary";
+                setRows(rows.map((row) => row.key === key ? { ...row, bySalary } : row));
+              }}>
+                <option value="fixed">금액 직접 입력</option>
+                <option value="salary">월급의 일정 비율</option>
+              </select>
+            </label>}
+            {bySalary ? <label className="field">월급에서 모을 비율 (%)
+              <input name={"salaryPercent-" + key} inputMode="numeric" placeholder="예: 20" defaultValue={rate && "salaryPercent" in rate ? rate.salaryPercent : undefined} required />
+              <span className="meta">그달 세후 고정 월급을 기준으로 계산해요.</span>
+            </label> : <RangeFields amount={rate && "amount" in rate ? rate.amount : undefined} label={saving ? "매달 모을 총액" : "월 금액"} />}
             {rows.length > 1 && <button type="button" className="btn btn-quiet self-start" onClick={() => setRows(rows.filter((row) => row.key !== key))}>이 적용월 삭제</button>}
           </div>
         ))}
