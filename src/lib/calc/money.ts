@@ -42,7 +42,7 @@ export function formatManwon(won: Won | bigint, signed = false): string {
   return prefix + whole + (fraction ? "." + fraction : "");
 }
 
-export function formatRange(amount: RangeAmount): string {
+export function formatRange(amount: { min: Won | bigint; max: Won | bigint }): string {
   return amount.min === amount.max
     ? formatManwon(amount.min)
     : formatManwon(amount.min) + "~" + formatManwon(amount.max);

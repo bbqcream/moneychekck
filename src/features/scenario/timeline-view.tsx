@@ -2,7 +2,7 @@ import { BalanceText } from "@/components/balance-text";
 import type { TimelineGroup } from "@/lib/calc/balance";
 import { formatRange } from "@/lib/calc/money";
 import type { Item, PayEvent } from "@/types/scenario";
-import { kindLabels } from "./labels";
+import { kindLabels, priorityLabels } from "./labels";
 
 type TimelineActions = {
   addItem: (event: PayEvent) => void;
@@ -51,6 +51,7 @@ function EventGroup({ group, actions }: { group: TimelineGroup; actions: Timelin
                 <div className="entry-title">
                   <h4>{item.label}</h4>
                   <span className="badge badge-kind">{fixedExpenseId ? "월 고정지출" : kindLabels[item.kind]}</span>
+                  {item.priority && <span className="badge badge-kind">{priorityLabels[item.priority]}</span>}
                 </div>
                 <p className="meta">
                   {formatRange(amount)}만원

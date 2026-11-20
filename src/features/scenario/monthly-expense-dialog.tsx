@@ -5,7 +5,8 @@ import { RangeFields } from "@/components/range-fields";
 import { isMonth } from "@/lib/calc/monthly";
 import { parseRange } from "@/lib/calc/money";
 import { createId } from "@/lib/create-id";
-import type { MonthlyExpense, MonthlyRate } from "@/types/scenario";
+import { isSpendingPriority, type MonthlyExpense, type MonthlyRate } from "@/types/scenario";
+import { PriorityField } from "./priority-field";
 
 export function MonthlyExpenseDialog({ expense, onSave, onClose }: {
   expense?: MonthlyExpense;
@@ -22,6 +23,7 @@ export function MonthlyExpenseDialog({ expense, onSave, onClose }: {
     event.preventDefault();
     const data = new FormData(event.currentTarget);
     const label = String(data.get("label") ?? "").trim();
+    const priority = data.get("priority");
     const starts = data.getAll("startMonth");
     const mins = data.getAll("min");
     const maxes = data.getAll("max");
@@ -37,7 +39,10 @@ export function MonthlyExpenseDialog({ expense, onSave, onClose }: {
       return setError("각 변경의 적용 시작월을 다르게 입력해 주세요.");
     }
     rates.sort((a, b) => a.startMonth.localeCompare(b.startMonth));
-    const issue = onSave({ id: expense?.id ?? createId(), label, rates });
+    const issue = onSave({
+      id: expense?.id ?? createId(), label, rates,
+      priority: isSpendingPriority(priority) ? priority : undefined,
+    });
     if (issue) setError(issue);
     else onClose();
   }
@@ -46,6 +51,7 @@ export function MonthlyExpenseDialog({ expense, onSave, onClose }: {
     <Dialog title={expense ? "월 고정지출 수정" : "월 고정지출 추가"} onClose={onClose}>
       <form className="form-stack" onSubmit={submit}>
         <label className="field">고정지출 이름<input name="label" defaultValue={expense?.label} placeholder="예: 교통비" maxLength={120} required /></label>
+        <PriorityField value={expense?.priority} />
         {rows.map(({ key, rate }) => (
           <div className="form-stack rounded-xl border border-line p-3" key={key}>
             <label className="field">적용 시작월<input type="month" name="startMonth" placeholder="YYYY-MM" defaultValue={rate?.startMonth} required /></label>

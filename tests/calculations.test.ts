@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { calculateTimeline } from "@/lib/calc/balance";
+import { summarizePriorities } from "@/lib/calc/priorities";
 import { compareTimelines } from "@/lib/calc/compare";
 import { formatManwon, parseManwon, parseRange } from "@/lib/calc/money";
 import { applyTax, parseTaxRate } from "@/lib/calc/tax";
@@ -17,6 +18,32 @@ const grant: PayEvent = {
 };
 
 describe("잔액 타임라인", () => {
+  it("우선순위별 합계에 실제 반영된 월 고정지출과 반복 항목을 포함한다", () => {
+    const scenario = {
+      ...paycheck,
+      monthlyExpenses: [{
+        id: "transportation", label: "교통비", priority: "P1" as const,
+        rates: [{ startMonth: "2026-11", amount: { min: 40000, max: 40000 } }],
+      }],
+      items: [
+        { ...paycheck.items[0], priority: "P1" as const },
+        { ...paycheck.items[2], priority: "P2" as const, repetition: { unit: "monthly" as const, count: 2 } },
+        paycheck.items[4],
+      ],
+    };
+    const timeline = calculateTimeline(scenario);
+    expect(summarizePriorities(timeline)).toEqual({
+      P1: { min: 160000n, max: 160000n, count: 2 },
+      P2: { min: 100000n, max: 150000n, count: 1 },
+      P3: { min: 0n, max: 0n, count: 0 },
+      unassigned: { min: 30000n, max: 50000n, count: 1 },
+    });
+    expect(timeline.finalBalance).toEqual(calculateTimeline({
+      ...scenario, items: scenario.items.map((item) => ({ ...item, priority: undefined })),
+    }).finalBalance);
+    expect(formatMemo(timeline)).toContain("* [P1] 교통비 4 → 잔액 92");
+  });
+
   it("96만원 입금부터 각 항목 직후의 best와 worst를 계산한다", () => {
     const timeline = calculateTimeline(paycheck);
     expect(timeline.groups[0].balance).toMatchObject({ best: 960000, worst: 960000 });

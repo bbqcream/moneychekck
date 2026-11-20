@@ -4,8 +4,9 @@ import { RangeFields } from "@/components/range-fields";
 import { FormActions } from "@/components/form-actions";
 import { parseRange, parseScaled } from "@/lib/calc/money";
 import { createId } from "@/lib/create-id";
-import { itemKinds, type Item, type Repetition } from "@/types/scenario";
+import { isSpendingPriority, itemKinds, type Item, type Repetition } from "@/types/scenario";
 import { kindLabels } from "./labels";
+import { PriorityField } from "./priority-field";
 
 type ItemInput = Omit<Item, "afterEventId" | "order">;
 
@@ -24,6 +25,7 @@ export function ItemDialog({ item, eventLabel, onSave, onClose }: {
     const amount = parseRange(String(data.get("min") ?? ""), String(data.get("max") ?? ""));
     const note = String(data.get("note") ?? "").trim();
     const kind = itemKinds.find((kind) => kind === data.get("kind"));
+    const priority = data.get("priority");
     const count = repeat === "once" ? 1 : parseScaled(String(data.get("count") ?? ""), 0);
     if (!label) return setError("항목 이름을 입력해 주세요.");
     if (!amount) return setError("0 이상의 만원 금액을 입력해 주세요. 최대는 최소 이상이어야 해요.");
@@ -32,6 +34,7 @@ export function ItemDialog({ item, eventLabel, onSave, onClose }: {
     const issue = onSave({
       id: item?.id ?? createId(),
       kind,
+      priority: isSpendingPriority(priority) ? priority : undefined,
       label,
       note: note || undefined,
       amount,
@@ -75,6 +78,7 @@ export function ItemDialog({ item, eventLabel, onSave, onClose }: {
             </label>
           )}
         </div>
+        <PriorityField value={item?.priority} />
         <RangeFields amount={item?.amount} label={repeat === "daily" ? "하루 금액" : repeat === "monthly" ? "한 달 금액" : "금액"} />
         <label className="field">
           메모 <span className="optional">선택</span>

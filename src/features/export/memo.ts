@@ -22,7 +22,8 @@ export function formatMemo(timeline: Timeline): string {
     );
     if (group.items.length) {
       const rows = group.items.map(({ item, amount, balance }) =>
-        "* " + itemDescription(item.label, amount) + " → 잔액 " + formatBalance(balance),
+        "* " + (item.priority ? "[" + item.priority + "] " : "") +
+        itemDescription(item.label, amount) + " → 잔액 " + formatBalance(balance),
       );
       sections.push("[" + (count + 1) + ". " + (index + 1) + "차 계획]\n" + rows.join("\n"));
     }

@@ -25,6 +25,7 @@ export function monthlyItems(expenses: MonthlyExpense[], events: PayEvent[]) {
         id: "monthly-" + expense.id + "-" + month,
         label: expense.label,
         kind: "expense",
+        priority: expense.priority,
         amount: rate.amount,
         afterEventId: event.id,
         order,

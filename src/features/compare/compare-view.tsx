@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { BalanceText } from "@/components/balance-text";
-import { incomeFilters, kindLabels } from "@/features/scenario/labels";
+import { incomeFilters, kindLabels, priorityLabels } from "@/features/scenario/labels";
 import { calculateTimeline, formatBalance, type TimelineItem } from "@/lib/calc/balance";
 import { balanceDifference, compareTimelines } from "@/lib/calc/compare";
 import type { IncomeFilter, Scenario } from "@/types/scenario";
@@ -38,7 +38,10 @@ function CompareItem({ entry }: { entry?: TimelineItem & { eventLabel: string } 
   return (
     <div className="compare-cell">
       <h3>{entry.item.label}</h3>
-      <p className="meta">{entry.eventLabel} · {kindLabels[entry.item.kind]}</p>
+      <p className="meta">
+        {entry.eventLabel} · {kindLabels[entry.item.kind]}
+        {entry.item.priority && " · " + priorityLabels[entry.item.priority]}
+      </p>
       <div className="compare-balance">
         <span>항목 후 잔액</span>
         <BalanceText balance={entry.balance} />
