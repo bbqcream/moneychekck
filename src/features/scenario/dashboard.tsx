@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BalanceText } from "@/components/balance-text";
 import { ConfirmAction } from "@/components/confirm-action";
 import { downloadPlanJson } from "@/features/export/download-json";
@@ -11,36 +11,42 @@ import { loadPlanData } from "@/lib/storage/local";
 import { usePlans } from "@/store/provider";
 import type { PlanData } from "@/types/plan-data";
 import { CurrentBalanceCard } from "./current-balance-card";
+import { Editor } from "./editor";
 import { examplePlan } from "./example";
 import { MonthlyOverview } from "./monthly-overview";
 import { MonthlyRules } from "./monthly-rules";
 import { MonthlySalaryCard } from "./monthly-salary-card";
-import { MonthlySpending } from "./monthly-spending";
 import { getMonthlyWorkspace } from "./monthly-workspace";
 import { NameDialog } from "./name-dialog";
 
 const updatedDate = new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium" });
-const planLink = (id: string) => "#/scenarios/" + id;
-
-export function Dashboard({ month, setMonth }: { month: string; setMonth: (month: string) => void }) {
+export function Dashboard({ month, setMonth, initialDetailId }: { month: string; setMonth: (month: string) => void; initialDetailId?: string }) {
   const data = usePlans((state) => state.data);
   const createPlan = usePlans((state) => state.createPlan);
-  const moveToEvent = usePlans((state) => state.moveItemToEvent);
   const clear = usePlans((state) => state.clear);
   const importData = usePlans((state) => state.importData);
   const issue = usePlans((state) => state.storageIssue);
   const online = usePlans((state) => state.syncPhase !== null);
   const [dialog, setDialog] = useState<"new" | "clear" | "import" | null>(null);
   const [importStatus, setImportStatus] = useState("");
+  const [detailId, setDetailId] = useState(initialDetailId);
+  const detailPanel = useRef<HTMLDivElement>(null);
   const { base, details } = getMonthlyWorkspace(data.scenarios, month);
   const timeline = base && calculateTimeline(base, "all", "budget");
-  const monthGroups = base && timeline ? timeline.groups.filter(({ event }) => eventPlanningMonth(base, event) === month) : [];
+  const detail = details.find(({ scenario }) => scenario.id === detailId)?.scenario;
   const pending = base?.events.filter((event) => event.date === null && eventPlanningMonth(base, event) === month) ?? [];
   const close = () => setDialog(null);
 
-  function editMonthlyPlan() {
-    const id = base?.id ?? createPlan("월별 기본 계획", { monthScope: "base" });
-    window.location.assign(planLink(id) + "?month=" + month);
+  useEffect(() => { if (detailId) detailPanel.current?.focus(); }, [detailId]);
+
+  function selectMonth(value: string) {
+    setDetailId(undefined);
+    setMonth(value);
+  }
+
+  function closeDetail() {
+    setDetailId(undefined);
+    if (initialDetailId) window.location.replace("#/?month=" + month);
   }
 
   function addImported(imported: PlanData) {
@@ -72,11 +78,10 @@ export function Dashboard({ month, setMonth }: { month: string; setMonth: (month
     <>
       <div className="page-heading"><h1>월별 가계 계획</h1></div>
       <div className="grid gap-3 lg:grid-cols-[minmax(0,3fr)_minmax(0,1fr)]">
-        <MonthlyOverview timeline={timeline} month={month} setMonth={setMonth} pending={pending} />
+        <MonthlyOverview timeline={timeline} month={month} setMonth={selectMonth} pending={pending} />
         <CurrentBalanceCard />
       </div>
-      <MonthlySpending key={month + (base?.id ?? "")} groups={monthGroups} onEdit={editMonthlyPlan}
-        onMove={(item, eventId) => base ? moveToEvent(base.id, item.id, eventId) : "월별 기본 계획을 찾을 수 없어요."} />
+      <Editor key={month} mode="base" month={month} scenario={base} />
       <section className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-label="고정 월급·지출·저축">
         <MonthlySalaryCard key={"salary-" + base?.id} scenario={base} month={month} />
         <MonthlyRules key={"expense-" + base?.id} scenario={base} kind="expense" month={month} />
@@ -89,7 +94,7 @@ export function Dashboard({ month, setMonth }: { month: string; setMonth: (month
             <button type="button" className="btn btn-primary" onClick={() => setDialog("new")}>+ 세부 시나리오</button>
             <button type="button" className="btn btn-secondary" onClick={() => {
               const events = examplePlan.events.map((event) => ({ ...event, date: event.date ? month + event.date.slice(7) : null }));
-              location.hash = planLink(createPlan("월급과 지원금 예시", { ...examplePlan, events, monthScope: month }));
+              setDetailId(createPlan("월급과 지원금 예시", { ...examplePlan, events, monthScope: month }));
             }}>예시로 시작</button>
             {data.scenarios.length > 0 && <a href="#/compare" className="btn btn-secondary">시나리오 비교</a>}
           </div>
@@ -98,13 +103,15 @@ export function Dashboard({ month, setMonth }: { month: string; setMonth: (month
           <ul className="plans-grid">
             {details.map(({ scenario, timeline }) => (
               <li key={scenario.id} className="plan-card">
-                <a href={planLink(scenario.id)}>
+                <button type="button" aria-expanded={detail?.id === scenario.id}
+                  aria-controls={detail?.id === scenario.id ? "detail-plan-editor" : undefined}
+                  onClick={() => detail?.id === scenario.id ? closeDetail() : setDetailId(scenario.id)}>
                   <div className="plan-card-top">
                     <div className="min-w-0">
                       <h3>{scenario.name}</h3>
                       <p className="meta">입금 {timeline.groups.length}건 · 항목 {scenario.items.length}개</p>
                     </div>
-                    <span className="plan-open">열기</span>
+                    <span className="plan-open">{detail?.id === scenario.id ? "접기" : "펼치기"}</span>
                   </div>
                   <div className="plan-card-bottom">
                     <div>
@@ -113,7 +120,7 @@ export function Dashboard({ month, setMonth }: { month: string; setMonth: (month
                     </div>
                     <time className="meta" dateTime={scenario.updatedAt}>{updatedDate.format(new Date(scenario.updatedAt))}</time>
                   </div>
-                </a>
+                </button>
               </li>
             ))}
           </ul>
@@ -125,6 +132,9 @@ export function Dashboard({ month, setMonth }: { month: string; setMonth: (month
             </div>
           </div>
         )}
+        {detail && <div id="detail-plan-editor" ref={detailPanel} tabIndex={-1} className="mt-3 scroll-mt-4 rounded-2xl border border-line bg-paper px-3 pb-3 sm:px-5 sm:pb-5">
+          <Editor key={detail.id} mode="detail" month={month} scenario={detail} onDelete={closeDetail} />
+        </div>}
       </section>
       <section className="data-bar" aria-labelledby="data-title">
         <div>
@@ -147,7 +157,7 @@ export function Dashboard({ month, setMonth }: { month: string; setMonth: (month
       {importStatus && <p className="meta mt-3" role="status">{importStatus}</p>}
       {dialog === "import" && <ImportDialog onClose={close} onImport={addImported} onDownloadExample={downloadExample} />}
       {dialog === "new" && <NameDialog title={`${Number(month.slice(5))}월 세부 시나리오 추가`} onSave={(name) => {
-        location.hash = planLink(createPlan(name, { monthScope: month }));
+        setDetailId(createPlan(name, { monthScope: month }));
       }} onClose={close} />}
       {dialog === "clear" && (
         <ConfirmAction title={online ? "계정 데이터를 모두 삭제할까요?" : "로컬 데이터를 모두 삭제할까요?"}

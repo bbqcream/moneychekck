@@ -1,15 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { BalanceText } from "@/components/balance-text";
 import { ConfirmAction } from "@/components/confirm-action";
 import { MemoDialog } from "@/features/export/memo-dialog";
 import { formatMemo } from "@/features/export/memo";
 import { calculateTimeline, itemsForEvent, type TimelineOrder } from "@/lib/calc/balance";
-import { eventPlanningMonth, summarizeMonth } from "@/lib/calc/monthly-overview";
+import { eventPlanningMonth } from "@/lib/calc/monthly-overview";
 import { usePlans } from "@/store/provider";
 import type { Item, PayEvent, RangeAmount, Scenario } from "@/types/scenario";
-import { CurrentBalanceCard } from "./current-balance-card";
 import { EventDialog } from "./event-dialog";
 import { ItemDialog } from "./item-dialog";
 import { MonthlyRules } from "./monthly-rules";
@@ -28,8 +26,14 @@ type EditorDialog =
   | { type: "delete-item"; item: Item }
   | { type: "name" | "tax" | "work" | "memo" | "savings-advice" | "delete-plan" };
 
-export function Editor({ scenario, month, focusMonth }: { scenario: Scenario; month: string; focusMonth?: string }) {
+export function Editor({ scenario, month, mode, onDelete }: {
+  scenario?: Scenario;
+  month: string;
+  mode: "base" | "detail";
+  onDelete?: () => void;
+}) {
   const updatePlan = usePlans((state) => state.updatePlan);
+  const createPlan = usePlans((state) => state.createPlan);
   const moveToEvent = usePlans((state) => state.moveItemToEvent);
   const removePlan = usePlans((state) => state.removePlan);
   const [dialog, setDialog] = useState<EditorDialog | null>(null);
@@ -39,16 +43,20 @@ export function Editor({ scenario, month, focusMonth }: { scenario: Scenario; mo
   const close = () => setDialog(null);
   const update = (change: (plan: Scenario) => Scenario) => {
     setError("");
-    return updatePlan(scenario.id, change);
+    return scenario ? updatePlan(scenario.id, change) : "계획을 찾을 수 없어요.";
   };
-  const timeline = calculateTimeline(scenario, "all", itemOrder);
-  const displayedMonth = showAll ? undefined : focusMonth;
-  const groups = displayedMonth ? timeline.groups.filter(({ event }) => eventPlanningMonth(scenario, event) === displayedMonth) : timeline.groups;
-  const finalBalance = displayedMonth ? summarizeMonth(timeline, displayedMonth).closing : timeline.groups.length ? timeline.finalBalance : undefined;
-  const visibleTimeline = { groups, finalBalance: finalBalance ?? timeline.finalBalance };
-  const defaultMonth = focusMonth ?? (scenario.monthScope && scenario.monthScope !== "base" ? scenario.monthScope : month);
+  const timeline = scenario && calculateTimeline(scenario, "all", itemOrder);
+  const displayedMonth = mode === "base" && !showAll ? month : undefined;
+  const groups = (timeline?.groups ?? []).filter(({ event }) => !displayedMonth || (scenario && eventPlanningMonth(scenario, event) === displayedMonth));
+  const visibleTimeline = timeline && { ...timeline, groups };
+  const defaultMonth = mode === "detail" && scenario?.monthScope && scenario.monthScope !== "base" ? scenario.monthScope : month;
+  const titleId = mode === "base" ? "month-spending-title" : "detail-timeline-title";
 
   function saveEvent(event: PayEvent) {
+    if (!scenario) {
+      createPlan("월별 기본 계획", { monthScope: "base", events: [{ ...event, plannedMonth: event.date ? undefined : defaultMonth }] });
+      return null;
+    }
     return update((plan) => {
       const previous = plan.events.find(({ id }) => id === event.id);
       const plannedMonth = event.date ? undefined : previous ? eventPlanningMonth(plan, previous) : defaultMonth;
@@ -83,77 +91,64 @@ export function Editor({ scenario, month, focusMonth }: { scenario: Scenario; mo
   }
 
   return (
-    <>
-      <a className="back-link" href={focusMonth ? "#/?month=" + focusMonth : "#/"}>월별 계획으로</a>
-      <div className="page-heading">
-        <div>
-          <h1>{focusMonth ? `${focusMonth.slice(0, 4)}년 ${Number(focusMonth.slice(5))}월 수입·지출` : scenario.name}</h1>
-          <p>입금 순서대로 계획을 적고, 항목을 처리할 때마다 남는 돈을 확인하세요.</p>
+    <section className="timeline mt-4" aria-labelledby={titleId}>
+      <div className="section-header flex-wrap">
+        <h2 id={titleId}>{mode === "detail" ? scenario?.name : `${month} 입금과 항목`}</h2>
+        <div className="button-row">
+          {mode === "base" && scenario && <button type="button" className="btn btn-secondary" onClick={() => setShowAll(!showAll)}>{showAll ? "선택한 달 보기" : "전체 기간 보기"}</button>}
+          <button type="button" className="btn btn-primary" onClick={() => setDialog({ type: "event" })}>+ 입금 추가</button>
         </div>
-        <button type="button" className="btn btn-secondary" onClick={() => setDialog({ type: "name" })}>이름 수정</button>
       </div>
       {error && <p className="form-error" role="alert">{error}</p>}
-      <div className="editor-grid">
-        <aside className="editor-sidebar" aria-label="시나리오 요약 및 도구">
-          <div className="summary-card">
-            <p>{displayedMonth ? `${displayedMonth} 월말 예상 잔액` : "최종 예상 잔액"}</p>
-            {finalBalance ? <BalanceText balance={finalBalance} large /> : <strong className="summary-placeholder">—</strong>}
-            <p className="summary-caption">{finalBalance ? "좋은 경우 ~ 나쁜 경우" : "입금을 추가하면 잔액을 볼 수 있어요."}</p>
-          </div>
-          <CurrentBalanceCard />
+      {groups.some(({ items }) => items.some(({ monthlyRuleId }) => !monthlyRuleId)) && (
+        <label className="field mb-3 max-w-64">항목 정렬
+          <select value={itemOrder} onChange={(event) => setItemOrder(event.target.value === "input" ? "input" : "budget")}>
+            <option value="budget">예산순 · 감당 가능한 항목 우선</option>
+            <option value="input">입력 순서</option>
+          </select>
+        </label>
+      )}
+      {scenario && groups.length ? (
+        <TimelineView groups={groups} onMove={(item, eventId) => moveToEvent(scenario.id, item.id, eventId)} edits={{
+          addItem: (event) => setDialog({ type: "item", event }),
+          editEvent: (event) => setDialog({ type: "event", event }),
+          deleteEvent: (event) => setDialog({ type: "delete-event", event }),
+          editItem: (event, item) => setDialog({ type: "item", event, item }),
+          deleteItem: (item) => setDialog({ type: "delete-item", item }),
+          moveItem: itemOrder === "input" ? moveItem : undefined,
+        }} />
+      ) : (
+        <div className="empty-panel">
+          <h3>{displayedMonth ? "이달에 입금이 없어요" : "첫 입금을 추가해 보세요"}</h3>
+          <p>입금을 추가하면 그 아래에 지출과 저축을 적을 수 있어요.</p>
+        </div>
+      )}
+      {scenario && visibleTimeline && <details className="panel mt-3 px-3 py-2">
+        <summary className="min-h-11 cursor-pointer py-3 text-sm font-semibold">계획 도구</summary>
+        <div className="mb-3 button-row">
+          <button type="button" className="btn btn-secondary" onClick={() => setDialog({ type: "tax" })}>세금 설정 · {taxLabel(scenario)}</button>
+          <button type="button" className="btn btn-secondary" onClick={() => setDialog({ type: "work" })}>근무수당 계산기</button>
+          <button type="button" className="btn btn-secondary" onClick={() => setDialog({ type: "savings-advice" })}>{displayedMonth && "전체 기간 "}저축 계획과 AI</button>
+          <button type="button" className="btn btn-secondary" disabled={!groups.length} onClick={() => setDialog({ type: "memo" })}>아이폰 메모 내보내기</button>
+          <button type="button" className="btn btn-secondary" onClick={() => setDialog({ type: "name" })}>이름 수정</button>
+          <button type="button" className="btn btn-quiet danger-text" onClick={() => setDialog({ type: "delete-plan" })}>{mode === "base" ? "기본 계획 삭제" : "시나리오 삭제"}</button>
+        </div>
+        <div className="grid gap-2">
           <PrioritySummary timeline={visibleTimeline} />
-          <div className="panel editor-tools">
-            <span className="meta">세금 · {taxLabel(scenario)}</span>
-            <button type="button" className="btn btn-secondary" onClick={() => setDialog({ type: "tax" })}>세금 설정</button>
-            <button type="button" className="btn btn-secondary" onClick={() => setDialog({ type: "work" })}>근무수당 계산기</button>
-            <button type="button" className="btn btn-secondary" onClick={() => setDialog({ type: "savings-advice" })}>{displayedMonth && "전체 기간 "}저축 계획과 AI</button>
-            <button type="button" className="btn btn-secondary" disabled={!groups.length} onClick={() => setDialog({ type: "memo" })}>아이폰 메모 내보내기</button>
-            <button type="button" className="btn btn-quiet danger-text" onClick={() => setDialog({ type: "delete-plan" })}>시나리오 삭제</button>
-          </div>
-          <MonthlySalaryCard scenario={scenario} month={displayedMonth} collapsible />
-          <MonthlyRules scenario={scenario} kind="expense" month={displayedMonth} collapsible />
-          <MonthlyRules scenario={scenario} kind="saving" collapsible />
-        </aside>
-        <section className="timeline" aria-labelledby="timeline-heading">
-          <div className="section-header flex-wrap">
-            <h2 id="timeline-heading">{displayedMonth && `${displayedMonth} `}입금과 항목</h2>
-            <div className="button-row">
-              {focusMonth && <button type="button" className="btn btn-secondary" onClick={() => setShowAll(!showAll)}>{showAll ? "선택한 달 보기" : "전체 기간 보기"}</button>}
-              <button type="button" className="btn btn-primary" onClick={() => setDialog({ type: "event" })}>+ 입금 추가</button>
-            </div>
-          </div>
-          {groups.some(({ items }) => items.some(({ monthlyRuleId }) => !monthlyRuleId)) && (
-            <label className="field mb-3 max-w-64">항목 정렬
-              <select value={itemOrder} onChange={(event) => setItemOrder(event.target.value === "input" ? "input" : "budget")}>
-                <option value="budget">예산순 · 감당 가능한 항목 우선</option>
-                <option value="input">입력 순서</option>
-              </select>
-            </label>
-          )}
-          {groups.length ? (
-            <TimelineView groups={groups} onMove={(item, eventId) => moveToEvent(scenario.id, item.id, eventId)} edits={{
-              addItem: (event) => setDialog({ type: "item", event }),
-              editEvent: (event) => setDialog({ type: "event", event }),
-              deleteEvent: (event) => setDialog({ type: "delete-event", event }),
-              editItem: (event, item) => setDialog({ type: "item", event, item }),
-              deleteItem: (item) => setDialog({ type: "delete-item", item }),
-              moveItem: itemOrder === "input" ? moveItem : undefined,
-            }} />
-          ) : (
-            <div className="empty-panel">
-              <h3>{displayedMonth ? "이달에 입금이 없어요" : "첫 입금을 추가해 보세요"}</h3>
-              <p>입금액을 입력하면 그 아래에 지출이나 저축 같은 항목을 추가할 수 있어요.</p>
-            </div>
-          )}
-        </section>
-      </div>
-      {dialog?.type === "name" && <NameDialog title="시나리오 이름 수정" name={scenario.name} onSave={(name) => update((plan) => ({ ...plan, name }))} onClose={close} />}
+          {mode === "detail" && <>
+            <MonthlySalaryCard scenario={scenario} collapsible />
+            <MonthlyRules scenario={scenario} kind="expense" collapsible />
+            <MonthlyRules scenario={scenario} kind="saving" collapsible />
+          </>}
+        </div>
+      </details>}
+      {scenario && dialog?.type === "name" && <NameDialog title="시나리오 이름 수정" name={scenario.name} onSave={(name) => update((plan) => ({ ...plan, name }))} onClose={close} />}
       {dialog?.type === "event" && <EventDialog event={dialog.event} draftAmount={dialog.draftAmount} draftDate={defaultMonth + "-01"} onSave={saveEvent} onClose={close} />}
       {dialog?.type === "item" && <ItemDialog item={dialog.item} eventLabel={dialog.event.label} onSave={(item) => saveItem(dialog.event, item)} onClose={close} />}
       {dialog?.type === "work" && <WorkPayDialog onUse={(won) => setDialog({ type: "event", draftAmount: { min: won, max: won } })} onClose={close} />}
-      {dialog?.type === "tax" && <TaxDialog scenario={scenario} onSave={(taxMode, customTaxBasisPoints) => update((plan) => ({ ...plan, taxMode, customTaxBasisPoints }))} onClose={close} />}
-      {dialog?.type === "memo" && <MemoDialog text={formatMemo(visibleTimeline)} onClose={close} />}
-      {dialog?.type === "savings-advice" && <SavingsAdviceDialog scenario={scenario} onClose={close} />}
+      {scenario && dialog?.type === "tax" && <TaxDialog scenario={scenario} onSave={(taxMode, customTaxBasisPoints) => update((plan) => ({ ...plan, taxMode, customTaxBasisPoints }))} onClose={close} />}
+      {visibleTimeline && dialog?.type === "memo" && <MemoDialog text={formatMemo(visibleTimeline)} onClose={close} />}
+      {scenario && dialog?.type === "savings-advice" && <SavingsAdviceDialog scenario={scenario} onClose={close} />}
       {dialog?.type === "delete-event" && (
         <ConfirmAction title="입금을 삭제할까요?" description={"‘" + dialog.event.label + "’와 연결된 항목도 함께 삭제돼요."} actionLabel="입금 삭제" onClose={close}
           onConfirm={() => update((plan) => ({
@@ -165,13 +160,13 @@ export function Editor({ scenario, month, focusMonth }: { scenario: Scenario; mo
         <ConfirmAction title="항목을 삭제할까요?" description={"‘" + dialog.item.label + "’를 삭제하면 이후 잔액이 다시 계산돼요."} actionLabel="항목 삭제" onClose={close}
           onConfirm={() => update((plan) => ({ ...plan, items: plan.items.filter(({ id }) => id !== dialog.item.id) })) ?? undefined} />
       )}
-      {dialog?.type === "delete-plan" && (
+      {scenario && dialog?.type === "delete-plan" && (
         <ConfirmAction title="시나리오를 삭제할까요?" description={"‘" + scenario.name + "’의 입금과 항목이 모두 삭제돼요."} actionLabel="시나리오 삭제" onClose={close}
           onConfirm={() => {
-            location.hash = "/";
             removePlan(scenario.id);
+            onDelete?.();
           }} />
       )}
-    </>
+    </section>
   );
 }

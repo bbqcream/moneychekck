@@ -1,11 +1,15 @@
 import { calculateTimeline } from "@/lib/calc/balance";
 import type { Scenario } from "@/types/scenario";
 
-export function getMonthlyWorkspace(scenarios: Scenario[], month: string) {
+export function getMonthlyBase(scenarios: Scenario[]) {
   const oldest = (plans: Scenario[]) => plans.reduce<Scenario | undefined>((first, plan) =>
     !first || plan.createdAt < first.createdAt ? plan : first, undefined);
-  const base = oldest(scenarios.filter(({ monthScope }) => monthScope === "base")) ??
+  return oldest(scenarios.filter(({ monthScope }) => monthScope === "base")) ??
     oldest(scenarios.filter(({ monthScope }) => monthScope === undefined));
+}
+
+export function getMonthlyWorkspace(scenarios: Scenario[], month: string) {
+  const base = getMonthlyBase(scenarios);
   const details = scenarios.filter(({ id }) => id !== base?.id).flatMap((scenario) => {
     if (scenario.monthScope && scenario.monthScope !== "base" && scenario.monthScope !== month) return [];
     const timeline = calculateTimeline(scenario);

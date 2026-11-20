@@ -4,7 +4,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { AccountStatus, type SignedInAccount } from "@/features/auth/account-status";
 import { CompareView } from "@/features/compare/compare-view";
 import { Dashboard } from "@/features/scenario/dashboard";
-import { Editor } from "@/features/scenario/editor";
+import { getMonthlyBase } from "@/features/scenario/monthly-workspace";
 import { isMonth } from "@/lib/calc/monthly";
 import { usePlans } from "@/store/provider";
 
@@ -48,6 +48,9 @@ export function PlannerView({ account }: { account?: SignedInAccount }) {
   const compare = path === "/compare";
   const scenarioId = path.match(/^\/scenarios\/([^/]+)$/)?.[1];
   const scenario = scenarios.find(({ id }) => scenarioId === id);
+  const legacyDetail = scenario && scenario.id !== getMonthlyBase(scenarios)?.id ? scenario : undefined;
+  const detailMonth = legacyDetail?.monthScope && isMonth(legacyDetail.monthScope) ? legacyDetail.monthScope :
+    legacyDetail?.events.find(({ date }) => date !== null)?.date?.slice(0, 7) ?? legacyDetail?.monthlySalary?.startMonth ?? legacyDetail?.createdAt.slice(0, 7);
 
   return (
     <>
@@ -74,16 +77,15 @@ export function PlannerView({ account }: { account?: SignedInAccount }) {
         )}
         {!ready ? !account && <p className="muted loading" role="status">저장된 시나리오를 불러오고 있어요.</p>
           : compare ? <CompareView scenarios={scenarios} />
-          : scenario ? <Editor key={scenario.id + (routeMonth ?? "")} scenario={scenario} month={month} focusMonth={routeMonth} />
-          : scenarioId ? (
+          : scenarioId && !scenario ? (
             <div className="empty-panel">
               <h1>시나리오를 찾을 수 없어요</h1>
               <p>이 브라우저에 저장된 다른 시나리오를 목록에서 열 수 있어요.</p>
               <a href="#/" className="btn btn-primary">시나리오 목록</a>
             </div>
-          ) : <Dashboard month={routeMonth ?? month} setMonth={(value) => {
+          ) : <Dashboard key={scenarioId ?? "dashboard"} initialDetailId={legacyDetail?.id} month={detailMonth ?? routeMonth ?? month} setMonth={(value) => {
             setMonth(value);
-            if (routeMonth) window.location.replace("#/?month=" + value);
+            if (routeMonth || scenarioId) window.location.replace("#/?month=" + value);
           }} />}
       </main>
     </>
