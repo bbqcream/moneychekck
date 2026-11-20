@@ -65,6 +65,14 @@ PC에서 개발 서버를 실행하는 동안 폰에서 접속할 수 있습니�
 
 Supabase Auth로 로그인하고 PostgreSQL 행 수준 보안으로 계정마다 문서를 분리합니다. 앱은 설정된 경우에만 Supabase를 사용합니다. 다른 기기에 변경을 저장하고 나서 앱으로 돌아오거나 **동기화**를 누르면 최신 값을 가져옵니다. 동시에 수정해 충돌이 나면 이 탭의 변경을 JSON으로 저장하고 **서버 버전 불러오기**로 최신 값을 선택할 수 있습니다.
 
+## AI 저축 제안
+
+시나리오 편집 화면의 **저축 계획과 AI**는 확실한 입금의 최소액에서 예정 지출과 이미 계획한 저축·투자의 최대액, 남겨둘 예비비를 빼서 추가 배분 한도를 계산합니다. 중간에 잔액이 부족한 구간이 있으면 한도를 0원으로 표시합니다.
+
+로그인한 사용자가 **AI 저축 제안 받기**를 누를 때만 계산한 금액 합계와 부족 여부가 OpenAI로 전송됩니다. 화면에서 추가 저축·투자 금액과 비율을 확인할 수 있습니다. 시나리오 이름, 메모, 계좌 정보는 요청에 포함되지 않으며 제안은 계산 한도 내에서 화면에 표시합니다.
+
+온라인 모드에서 제안을 받으려면 Supabase에 savings-advice Edge Function을 배포하고, Edge Function의 비밀 설정에 **OPENAI_API_KEY**와 **PAYPLAN_ADVICE_OWNER_ID**를 등록합니다. 허용 계정 ID는 Supabase Authentication의 Users에서 확인합니다. OpenAI 키는 함수 서버에만 둘 수 있도록 공개 환경변수와 분리합니다. [Supabase 함수 비밀 설정](https://supabase.com/docs/guides/functions/secrets) · [OpenAI API 시작 안내](https://developers.openai.com/api/docs/quickstart)
+
 ## 검증과 배포
 
 ~~~sh

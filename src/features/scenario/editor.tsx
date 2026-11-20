@@ -14,6 +14,7 @@ import { ItemDialog } from "./item-dialog";
 import { MonthlyRules } from "./monthly-rules";
 import { NameDialog } from "./name-dialog";
 import { PrioritySummary } from "./priority-summary";
+import { SavingsAdviceDialog } from "./savings-advice-dialog";
 import { TaxDialog, taxLabel } from "./tax-dialog";
 import { TimelineView } from "./timeline-view";
 import { WorkPayDialog } from "./work-pay-dialog";
@@ -23,7 +24,7 @@ type EditorDialog =
   | { type: "item"; event: PayEvent; item?: Item }
   | { type: "delete-event"; event: PayEvent }
   | { type: "delete-item"; item: Item }
-  | { type: "name" | "tax" | "work" | "memo" | "delete-plan" };
+  | { type: "name" | "tax" | "work" | "memo" | "savings-advice" | "delete-plan" };
 
 export function Editor({ scenario }: { scenario: Scenario }) {
   const updatePlan = usePlans((state) => state.updatePlan);
@@ -93,6 +94,7 @@ export function Editor({ scenario }: { scenario: Scenario }) {
             <span className="meta">세금 · {taxLabel(scenario)}</span>
             <button type="button" className="btn btn-secondary" onClick={() => setDialog({ type: "tax" })}>세금 설정</button>
             <button type="button" className="btn btn-secondary" onClick={() => setDialog({ type: "work" })}>근무수당 계산기</button>
+            <button type="button" className="btn btn-secondary" onClick={() => setDialog({ type: "savings-advice" })}>저축 계획과 AI</button>
             <button type="button" className="btn btn-secondary" disabled={!groups.length} onClick={() => setDialog({ type: "memo" })}>아이폰 메모 내보내기</button>
             <button type="button" className="btn btn-quiet danger-text" onClick={() => setDialog({ type: "delete-plan" })}>시나리오 삭제</button>
           </div>
@@ -127,6 +129,7 @@ export function Editor({ scenario }: { scenario: Scenario }) {
       {dialog?.type === "work" && <WorkPayDialog onUse={(won) => setDialog({ type: "event", draftAmount: { min: won, max: won } })} onClose={close} />}
       {dialog?.type === "tax" && <TaxDialog scenario={scenario} onSave={(taxMode, customTaxBasisPoints) => update((plan) => ({ ...plan, taxMode, customTaxBasisPoints }))} onClose={close} />}
       {dialog?.type === "memo" && <MemoDialog text={formatMemo(timeline)} onClose={close} />}
+      {dialog?.type === "savings-advice" && <SavingsAdviceDialog scenario={scenario} onClose={close} />}
       {dialog?.type === "delete-event" && (
         <ConfirmAction title="입금을 삭제할까요?" description={"‘" + dialog.event.label + "’와 연결된 항목도 함께 삭제돼요."} actionLabel="입금 삭제" onClose={close}
           onConfirm={() => update((plan) => ({
