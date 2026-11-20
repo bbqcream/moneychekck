@@ -46,6 +46,7 @@ export type TaxMode = "none" | "withholding-3.3" | "custom";
 export type Scenario = {
   id: string;
   name: string;
+  monthScope?: string;
   events: PayEvent[];
   items: Item[];
   monthlySalary?: MonthlySalary;

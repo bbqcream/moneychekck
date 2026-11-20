@@ -7,9 +7,10 @@ import { parseCalendarDate } from "@/lib/calc/work-pay";
 import { createId } from "@/lib/create-id";
 import type { PayEvent, RangeAmount } from "@/types/scenario";
 
-export function EventDialog({ event, draftAmount, onSave, onClose }: {
+export function EventDialog({ event, draftAmount, draftDate, onSave, onClose }: {
   event?: PayEvent;
   draftAmount?: RangeAmount;
+  draftDate?: string;
   onSave: (event: PayEvent) => string | null;
   onClose: () => void;
 }) {
@@ -46,7 +47,7 @@ export function EventDialog({ event, draftAmount, onSave, onClose }: {
         <div className="form-grid">
           <label className="field">
             입금일 <span className="optional">비우면 시기 미정</span>
-            <input type="date" name="date" defaultValue={event?.date ?? ""} />
+            <input type="date" name="date" defaultValue={event ? event.date ?? "" : draftDate} />
           </label>
           <label className="field">
             확실성

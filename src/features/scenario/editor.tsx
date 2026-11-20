@@ -27,7 +27,7 @@ type EditorDialog =
   | { type: "delete-item"; item: Item }
   | { type: "name" | "tax" | "work" | "memo" | "savings-advice" | "delete-plan" };
 
-export function Editor({ scenario }: { scenario: Scenario }) {
+export function Editor({ scenario, month }: { scenario: Scenario; month: string }) {
   const updatePlan = usePlans((state) => state.updatePlan);
   const removePlan = usePlans((state) => state.removePlan);
   const [dialog, setDialog] = useState<EditorDialog | null>(null);
@@ -89,7 +89,7 @@ export function Editor({ scenario }: { scenario: Scenario }) {
 
   return (
     <>
-      <a className="back-link" href="#/">시나리오 목록</a>
+      <a className="back-link" href="#/">월별 계획으로</a>
       <div className="page-heading">
         <div>
           <h1>{scenario.name}</h1>
@@ -143,7 +143,7 @@ export function Editor({ scenario }: { scenario: Scenario }) {
         </section>
       </div>
       {dialog?.type === "name" && <NameDialog title="시나리오 이름 수정" name={scenario.name} onSave={(name) => update((plan) => ({ ...plan, name }))} onClose={close} />}
-      {dialog?.type === "event" && <EventDialog event={dialog.event} draftAmount={dialog.draftAmount} onSave={saveEvent} onClose={close} />}
+      {dialog?.type === "event" && <EventDialog event={dialog.event} draftAmount={dialog.draftAmount} draftDate={(scenario.monthScope && scenario.monthScope !== "base" ? scenario.monthScope : month) + "-01"} onSave={saveEvent} onClose={close} />}
       {dialog?.type === "item" && <ItemDialog item={dialog.item} eventLabel={dialog.event.label} onSave={(item) => saveItem(dialog.event, item)} onClose={close} />}
       {dialog?.type === "work" && <WorkPayDialog onUse={(won) => setDialog({ type: "event", draftAmount: { min: won, max: won } })} onClose={close} />}
       {dialog?.type === "tax" && <TaxDialog scenario={scenario} onSave={(taxMode, customTaxBasisPoints) => update((plan) => ({ ...plan, taxMode, customTaxBasisPoints }))} onClose={close} />}

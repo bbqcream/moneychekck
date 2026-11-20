@@ -14,12 +14,14 @@ import { examplePlan } from "./example";
 import { MonthlyOverview } from "./monthly-overview";
 import { MonthlyRules } from "./monthly-rules";
 import { MonthlySalaryCard } from "./monthly-salary-card";
+import { MonthlySpending } from "./monthly-spending";
+import { getMonthlyWorkspace } from "./monthly-workspace";
 import { NameDialog } from "./name-dialog";
 
 const updatedDate = new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium" });
 const planLink = (id: string) => "#/scenarios/" + id;
 
-export function Dashboard() {
+export function Dashboard({ month, setMonth }: { month: string; setMonth: (month: string) => void }) {
   const data = usePlans((state) => state.data);
   const createPlan = usePlans((state) => state.createPlan);
   const clear = usePlans((state) => state.clear);
@@ -28,12 +30,13 @@ export function Dashboard() {
   const online = usePlans((state) => state.syncPhase !== null);
   const [dialog, setDialog] = useState<"new" | "clear" | "import" | null>(null);
   const [importStatus, setImportStatus] = useState("");
-  const [selectedId, setSelectedId] = useState("");
-  const plans = [...data.scenarios].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
-    .map((scenario) => ({ scenario, timeline: calculateTimeline(scenario) }));
-  const selected = plans.find(({ scenario }) => scenario.id === selectedId) ?? plans[0];
-  const scenario = selected?.scenario;
+  const { base, details } = getMonthlyWorkspace(data.scenarios, month);
+  const timeline = base && calculateTimeline(base);
   const close = () => setDialog(null);
+
+  function editMonthlyPlan() {
+    window.location.assign(planLink(base?.id ?? createPlan("월별 기본 계획", { monthScope: "base" })));
+  }
 
   function addImported(imported: PlanData) {
     const { added, skipped, balanceAdded } = importData(imported);
@@ -62,41 +65,32 @@ export function Dashboard() {
 
   return (
     <>
-      <div className="page-heading items-end!">
-        <h1>월급 시나리오</h1>
-        {scenario && plans.length > 1 && (
-          <label className="field w-full sm:w-auto sm:max-w-sm">
-            보기 시나리오
-            <select value={scenario.id} onChange={(event) => setSelectedId(event.target.value)}>
-              {plans.map(({ scenario: { id, name } }) => <option key={id} value={id}>{name}</option>)}
-            </select>
-          </label>
-        )}
-        {scenario && plans.length === 1 && <a className="back-link mb-0!" href={planLink(scenario.id)}>{scenario.name}</a>}
-      </div>
+      <div className="page-heading"><h1>월별 가계 계획</h1></div>
       <div className="grid gap-3 lg:grid-cols-[minmax(0,3fr)_minmax(0,1fr)]">
-        <MonthlyOverview timeline={selected?.timeline} />
+        <MonthlyOverview timeline={timeline} month={month} setMonth={setMonth} />
         <CurrentBalanceCard />
       </div>
+      <MonthlySpending timeline={timeline} month={month} onEdit={editMonthlyPlan} />
       <section className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-label="고정 월급·지출·저축">
-        <MonthlySalaryCard key={"salary-" + scenario?.id} scenario={scenario} />
-        <MonthlyRules key={"expense-" + scenario?.id} scenario={scenario} kind="expense" />
-        <MonthlyRules key={"saving-" + scenario?.id} scenario={scenario} kind="saving" />
+        <MonthlySalaryCard key={"salary-" + base?.id} scenario={base} />
+        <MonthlyRules key={"expense-" + base?.id} scenario={base} kind="expense" />
+        <MonthlyRules key={"saving-" + base?.id} scenario={base} kind="saving" />
       </section>
       <section aria-labelledby="plans-title" className="plans-section">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <h2 id="plans-title">세부 시나리오</h2>
+          <h2 id="plans-title">{Number(month.slice(5))}월 세부 시나리오</h2>
           <div className="button-row">
-            <button type="button" className="btn btn-primary" onClick={() => setDialog("new")}>+ 새 시나리오</button>
+            <button type="button" className="btn btn-primary" onClick={() => setDialog("new")}>+ 세부 시나리오</button>
             <button type="button" className="btn btn-secondary" onClick={() => {
-              location.hash = planLink(createPlan("월급과 지원금 예시", examplePlan));
+              const events = examplePlan.events.map((event) => ({ ...event, date: event.date ? month + event.date.slice(7) : null }));
+              location.hash = planLink(createPlan("월급과 지원금 예시", { ...examplePlan, events, monthScope: month }));
             }}>예시로 시작</button>
-            {plans.length > 0 && <a href="#/compare" className="btn btn-secondary">시나리오 비교</a>}
+            {data.scenarios.length > 0 && <a href="#/compare" className="btn btn-secondary">시나리오 비교</a>}
           </div>
         </div>
-        {plans.length ? (
+        {details.length ? (
           <ul className="plans-grid">
-            {plans.map(({ scenario, timeline }) => (
+            {details.map(({ scenario, timeline }) => (
               <li key={scenario.id} className="plan-card">
                 <a href={planLink(scenario.id)}>
                   <div className="plan-card-top">
@@ -121,8 +115,7 @@ export function Dashboard() {
           <div className="empty-panel empty-dashboard">
             <span className="empty-icon" aria-hidden="true"><i /><i /><i /></span>
             <div>
-              <h3>아직 저장된 시나리오가 없어요</h3>
-              <p>새 시나리오를 만들거나 예시를 열어 계획을 시작해 보세요.</p>
+              <h3>이달에 만든 세부 시나리오가 없어요</h3>
             </div>
           </div>
         )}
@@ -142,13 +135,13 @@ export function Dashboard() {
           }}>기존 브라우저 계획 가져오기</button>}
           <button type="button" className="btn btn-secondary" onClick={() => setDialog("import")}>JSON 불러오기</button>
           <button type="button" className="btn btn-secondary" onClick={() => downloadPlanJson(data, "payplan-backup.json")}>전체 JSON 내보내기</button>
-          <button type="button" className="btn btn-quiet danger-text" disabled={!plans.length && !data.currentBalance && !issue} onClick={() => setDialog("clear")}>전체 삭제</button>
+          <button type="button" className="btn btn-quiet danger-text" disabled={!data.scenarios.length && !data.currentBalance && !issue} onClick={() => setDialog("clear")}>전체 삭제</button>
         </div>
       </section>
       {importStatus && <p className="meta mt-3" role="status">{importStatus}</p>}
       {dialog === "import" && <ImportDialog onClose={close} onImport={addImported} onDownloadExample={downloadExample} />}
-      {dialog === "new" && <NameDialog title="새 시나리오" onSave={(name) => {
-        location.hash = planLink(createPlan(name));
+      {dialog === "new" && <NameDialog title={`${Number(month.slice(5))}월 세부 시나리오 추가`} onSave={(name) => {
+        location.hash = planLink(createPlan(name, { monthScope: month }));
       }} onClose={close} />}
       {dialog === "clear" && (
         <ConfirmAction title={online ? "계정 데이터를 모두 삭제할까요?" : "로컬 데이터를 모두 삭제할까요?"}

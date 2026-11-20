@@ -81,6 +81,8 @@ function isScenario(value: unknown): value is Scenario {
   const rate = value.customTaxBasisPoints;
   if (rate !== undefined && (!isUnsignedInteger(rate) || rate > 10000)) return false;
   if (value.taxMode === "custom" && rate === undefined) return false;
+  const scope = value.monthScope;
+  if (scope !== undefined && scope !== "base" && (typeof scope !== "string" || !isMonth(scope))) return false;
   const expenses = value.monthlyExpenses;
   if (expenses !== undefined &&
     (!Array.isArray(expenses) || !expenses.every(isMonthlyRule) || !hasUniqueIds(expenses))) return false;

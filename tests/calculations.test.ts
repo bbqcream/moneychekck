@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { calculateTimeline } from "@/lib/calc/balance";
 import { splitSavingsAmount } from "@/lib/calc/monthly";
 import { stepMonth, summarizeMonth } from "@/lib/calc/monthly-overview";
+import { getMonthlyWorkspace } from "@/features/scenario/monthly-workspace";
 import { summarizePriorities } from "@/lib/calc/priorities";
 import { compareTimelines } from "@/lib/calc/compare";
 import { formatManwon, parseManwon, parseRange } from "@/lib/calc/money";
@@ -21,6 +22,18 @@ const grant: PayEvent = {
 };
 
 describe("월별 보기", () => {
+  it("기본 계획과 선택한 달의 세부 시나리오를 구분하고 기존 계획도 날짜로 찾는다", () => {
+    const base = { ...paycheck, id: "base", monthScope: "base" };
+    const november = { ...paycheck, id: "november", monthScope: "2026-11" };
+    const december = { ...paycheck, id: "december", monthScope: "2026-12", events: [], items: [] };
+    const legacy = { ...paycheck, id: "legacy" };
+    const plans = [december, november, legacy, base];
+    expect(getMonthlyWorkspace(plans, "2026-11").details.map(({ scenario }) => scenario.id)).toEqual(["november", "legacy"]);
+    expect(getMonthlyWorkspace(plans, "2026-12").details.map(({ scenario }) => scenario.id)).toEqual(["december"]);
+    expect(getMonthlyWorkspace(plans, "2026-12").base?.id).toBe("base");
+    expect(getMonthlyWorkspace([december, legacy], "2026-12").base?.id).toBe("legacy");
+  });
+
   it("앞 달 잔액을 이월하고 선택월의 입금, 지출, 저축·투자만 합산한다", () => {
     const timeline = calculateTimeline({
       ...paycheck, events: [...paycheck.events, grant],

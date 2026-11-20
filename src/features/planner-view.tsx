@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { AccountStatus, type SignedInAccount } from "@/features/auth/account-status";
 import { CompareView } from "@/features/compare/compare-view";
 import { Dashboard } from "@/features/scenario/dashboard";
@@ -22,6 +22,9 @@ function routeSnapshot() {
 
 export function PlannerView({ account }: { account?: SignedInAccount }) {
   const route = useSyncExternalStore(subscribe, routeSnapshot, () => "/");
+  const [month, setMonth] = useState(() => new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Asia/Seoul", year: "numeric", month: "2-digit",
+  }).format(new Date()));
   const scenarios = usePlans((state) => state.data.scenarios);
   const ready = usePlans((state) => state.ready);
   const storageIssue = usePlans((state) => state.storageIssue);
@@ -51,7 +54,7 @@ export function PlannerView({ account }: { account?: SignedInAccount }) {
             <span>페이플랜</span>
           </a>
           <nav className="site-nav" aria-label="주 메뉴">
-            <a href="#/" aria-current={!compare ? "page" : undefined}>시나리오</a>
+            <a href="#/" aria-current={!compare ? "page" : undefined}>월별 계획</a>
             <a href="#/compare" aria-current={compare ? "page" : undefined}>비교</a>
           </nav>
         </div>
@@ -67,14 +70,14 @@ export function PlannerView({ account }: { account?: SignedInAccount }) {
         )}
         {!ready ? !account && <p className="muted loading" role="status">저장된 시나리오를 불러오고 있어요.</p>
           : compare ? <CompareView scenarios={scenarios} />
-          : scenario ? <Editor key={scenario.id} scenario={scenario} />
+          : scenario ? <Editor key={scenario.id} scenario={scenario} month={month} />
           : scenarioId ? (
             <div className="empty-panel">
               <h1>시나리오를 찾을 수 없어요</h1>
               <p>이 브라우저에 저장된 다른 시나리오를 목록에서 열 수 있어요.</p>
               <a href="#/" className="btn btn-primary">시나리오 목록</a>
             </div>
-          ) : <Dashboard />}
+          ) : <Dashboard month={month} setMonth={setMonth} />}
       </main>
     </>
   );

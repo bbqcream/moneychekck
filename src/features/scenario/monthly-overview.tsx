@@ -1,17 +1,14 @@
-import { useState } from "react";
 import { BalanceText } from "@/components/balance-text";
 import type { Timeline } from "@/lib/calc/balance";
 import { formatRange } from "@/lib/calc/money";
 import { isMonth } from "@/lib/calc/monthly";
 import { stepMonth, summarizeMonth } from "@/lib/calc/monthly-overview";
 
-function currentMonth() {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-}
-
-export function MonthlyOverview({ timeline }: { timeline?: Timeline }) {
-  const [month, setMonth] = useState(currentMonth);
+export function MonthlyOverview({ timeline, month, setMonth }: {
+  timeline?: Timeline;
+  month: string;
+  setMonth: (month: string) => void;
+}) {
   const previous = stepMonth(month, -1);
   const next = stepMonth(month, 1);
   const totals = timeline && summarizeMonth(timeline, month);
@@ -54,7 +51,7 @@ export function MonthlyOverview({ timeline }: { timeline?: Timeline }) {
             </dl>
             <p className="meta mt-3">{totals.count ? "앞 달 잔액을 이월해요. 날짜가 정해진 입금 기준이에요." : "이달에 날짜가 정해진 입금이 없어요."}</p>
           </>
-        ) : <p className="meta">아래에서 시나리오를 만들면 월별 계획을 볼 수 있어요.</p>}
+        ) : <p className="meta">월별 수입·지출을 추가하면 이달의 잔액을 볼 수 있어요.</p>}
       </div>
     </section>
   );
