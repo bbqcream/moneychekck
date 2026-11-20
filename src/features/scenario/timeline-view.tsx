@@ -13,19 +13,26 @@ const monthlyItemLabels: Partial<Record<Item["kind"], string>> = {
   investment: "월 고정투자",
 };
 
-type TimelineActions = {
+const kindEmoji: Record<Item["kind"], string> = {
+  expense: "🛒",
+  saving: "🐷",
+  investment: "📈",
+  debt: "🧾",
+  transfer: "💸",
+};
+
+type TimelineEdits = {
   addItem: (event: PayEvent) => void;
   editEvent: (event: PayEvent) => void;
   deleteEvent: (event: PayEvent) => void;
   editItem: (event: PayEvent, item: Item) => void;
   deleteItem: (item: Item) => void;
   moveItem: (item: Item, direction: -1 | 1) => void;
-  moveItemToEvent: (item: Item, eventId: string) => string | null;
 };
 
-function EventGroup({ group, actions, drag, openMove }: {
+function EventGroup({ group, edits, drag, openMove }: {
   group: TimelineGroup;
-  actions: TimelineActions;
+  edits?: TimelineEdits;
   drag: ReturnType<typeof useItemDrag>;
   openMove?: (item: Item) => void;
 }) {
@@ -50,9 +57,9 @@ function EventGroup({ group, actions, drag, openMove }: {
           </p>
           {event.note && <p className="item-note">{event.note}</p>}
         </div>
-        {!monthlySalary && <div className="entry-actions">
-          <button type="button" className="btn btn-quiet" aria-label={event.label + " 입금 수정"} onClick={() => actions.editEvent(event)}>수정</button>
-          <button type="button" className="btn btn-quiet" aria-label={event.label + " 입금 삭제"} onClick={() => actions.deleteEvent(event)}>삭제</button>
+        {edits && !monthlySalary && <div className="entry-actions">
+          <button type="button" className="btn btn-quiet" aria-label={event.label + " 입금 수정"} onClick={() => edits.editEvent(event)}>수정</button>
+          <button type="button" className="btn btn-quiet" aria-label={event.label + " 입금 삭제"} onClick={() => edits.deleteEvent(event)}>삭제</button>
         </div>}
         <div className="entry-balance event-balance">
           <span>입금 후 잔액</span>
@@ -66,13 +73,14 @@ function EventGroup({ group, actions, drag, openMove }: {
               <div className="entry-main">
                 <div className="entry-title">
                   <h4>{item.label}</h4>
-                  <span className="badge badge-kind">
+                  <span className="badge badge-kind gap-1">
+                    <span aria-hidden="true">{kindEmoji[item.kind]}</span>
                     {(monthlyRuleId && monthlyItemLabels[item.kind]) || kindLabels[item.kind]}
                   </span>
                   {item.priority && <span className="badge badge-kind">{priorityLabels[item.priority]}</span>}
                 </div>
                 <p className="meta">
-                  {formatRange(amount)}만원
+                  계획 금액 {formatRange(amount)}만원
                   {item.repetition && (
                     " · " + formatRange(item.amount) + "만원 × " + item.repetition.count +
                     (item.repetition.unit === "daily" ? "일" : "개월")
@@ -80,17 +88,19 @@ function EventGroup({ group, actions, drag, openMove }: {
                 </p>
                 {item.note && <p className="item-note">{item.note}</p>}
               </div>
-              {!monthlyRuleId && <div className="entry-actions">
+              {!monthlyRuleId && (openMove || edits) && <div className="entry-actions">
                 {openMove && <button type="button" className="btn btn-quiet cursor-grab! touch-none select-none active:cursor-grabbing!"
                   aria-label={item.label + " 다른 입금으로 이동"} {...drag.handle(item, openMove)}>↔ 이동</button>}
-                {manual.length > 1 && (
+                {edits && manual.length > 1 && (
                   <>
-                    <button type="button" className="btn btn-quiet order-button" aria-label={item.label + " 위로 이동"} disabled={item.id === manual[0].item.id} onClick={() => actions.moveItem(item, -1)}>↑</button>
-                    <button type="button" className="btn btn-quiet order-button" aria-label={item.label + " 아래로 이동"} disabled={item.id === manual.at(-1)?.item.id} onClick={() => actions.moveItem(item, 1)}>↓</button>
+                    <button type="button" className="btn btn-quiet order-button" aria-label={item.label + " 위로 이동"} disabled={item.id === manual[0].item.id} onClick={() => edits.moveItem(item, -1)}>↑</button>
+                    <button type="button" className="btn btn-quiet order-button" aria-label={item.label + " 아래로 이동"} disabled={item.id === manual.at(-1)?.item.id} onClick={() => edits.moveItem(item, 1)}>↓</button>
                   </>
                 )}
-                <button type="button" className="btn btn-quiet" aria-label={item.label + " 항목 수정"} onClick={() => actions.editItem(event, item)}>수정</button>
-                <button type="button" className="btn btn-quiet" aria-label={item.label + " 항목 삭제"} onClick={() => actions.deleteItem(item)}>삭제</button>
+                {edits && <>
+                  <button type="button" className="btn btn-quiet" aria-label={item.label + " 항목 수정"} onClick={() => edits.editItem(event, item)}>수정</button>
+                  <button type="button" className="btn btn-quiet" aria-label={item.label + " 항목 삭제"} onClick={() => edits.deleteItem(item)}>삭제</button>
+                </>}
               </div>}
               <div className="entry-balance">
                 <span>항목 후 잔액</span>
@@ -100,20 +110,24 @@ function EventGroup({ group, actions, drag, openMove }: {
           ))}
         </ol>
       )}
-      <div className="event-footer">
-        <button type="button" className="btn btn-secondary" aria-label={event.label + " 아래 항목 추가"} onClick={() => actions.addItem(event)}>+ 항목 추가</button>
-      </div>
+      {edits && <div className="event-footer">
+        <button type="button" className="btn btn-secondary" aria-label={event.label + " 아래 항목 추가"} onClick={() => edits.addItem(event)}>+ 항목 추가</button>
+      </div>}
     </article>
   );
 }
 
-export function TimelineView({ groups, actions }: { groups: TimelineGroup[]; actions: TimelineActions }) {
+export function TimelineView({ groups, edits, onMove }: {
+  groups: TimelineGroup[];
+  edits?: TimelineEdits;
+  onMove: (item: Item, eventId: string) => string | null;
+}) {
   const [moving, setMoving] = useState<Item>();
   const [notice, setNotice] = useState("");
   function move(item: Item, eventId: string) {
     const destination = groups.find(({ event }) => event.id === eventId)?.event;
     if (!destination) return "이동할 입금을 찾을 수 없어요.";
-    const issue = actions.moveItemToEvent(item, eventId);
+    const issue = onMove(item, eventId);
     if (!issue) setNotice(`‘${item.label}’ 항목을 ‘${destination.label}’ 입금 아래로 옮겼어요.`);
     return issue;
   }
@@ -130,9 +144,9 @@ export function TimelineView({ groups, actions }: { groups: TimelineGroup[]; act
       {openMove && groups.some(({ items }) => items.some(({ monthlyRuleId }) => !monthlyRuleId)) && (
         <p className="meta">‘이동’을 잡아 다른 입금 카드에 놓거나, 눌러서 이동할 입금을 고르세요.</p>
       )}
-      {dated.map((group) => <EventGroup key={group.event.id} group={group} actions={actions} drag={drag} openMove={openMove} />)}
+      {dated.map((group) => <EventGroup key={group.event.id} group={group} edits={edits} drag={drag} openMove={openMove} />)}
       {undated.length > 0 && <h3 className="timeline-divider">날짜 미정 입금</h3>}
-      {undated.map((group) => <EventGroup key={group.event.id} group={group} actions={actions} drag={drag} openMove={openMove} />)}
+      {undated.map((group) => <EventGroup key={group.event.id} group={group} edits={edits} drag={drag} openMove={openMove} />)}
       {moving && <ItemMoveDialog item={moving} events={groups.map(({ event }) => event)} onMove={move} onClose={() => setMoving(undefined)} />}
     </div>
   );

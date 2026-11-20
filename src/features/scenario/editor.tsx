@@ -122,14 +122,13 @@ export function Editor({ scenario, month, focusMonth }: { scenario: Scenario; mo
             </div>
           </div>
           {groups.length ? (
-            <TimelineView groups={groups} actions={{
+            <TimelineView groups={groups} onMove={(item, eventId) => moveToEvent(scenario.id, item.id, eventId)} edits={{
               addItem: (event) => setDialog({ type: "item", event }),
               editEvent: (event) => setDialog({ type: "event", event }),
               deleteEvent: (event) => setDialog({ type: "delete-event", event }),
               editItem: (event, item) => setDialog({ type: "item", event, item }),
               deleteItem: (item) => setDialog({ type: "delete-item", item }),
               moveItem,
-              moveItemToEvent: (item, eventId) => moveToEvent(scenario.id, item.id, eventId),
             }} />
           ) : (
             <div className="empty-panel">

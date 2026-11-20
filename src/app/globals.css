@@ -65,44 +65,6 @@
   .danger-text { @apply text-danger enabled:hover:bg-danger-soft enabled:hover:text-danger; }
   .button-row { @apply flex flex-wrap items-center gap-2.5; }
   .panel { @apply rounded-2xl border border-line bg-paper; }
-  .spending-event { @apply overflow-hidden rounded-2xl border border-line bg-paper shadow-xs; }
-  .spending-event-head {
-    @apply flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-line bg-canvas px-3 py-3 sm:px-4;
-  }
-  .spending-list { @apply grid gap-2 p-2 sm:p-3; }
-  .spending-item {
-    @apply relative grid grid-cols-1 items-start gap-3 rounded-xl border border-line bg-paper px-3 py-3 shadow-xs sm:grid-cols-2 sm:items-center sm:gap-5 sm:px-4;
-  }
-  .spending-item::before {
-    content: "";
-    @apply absolute inset-y-2 left-0 w-1 rounded-r-full;
-  }
-  .spending-expense::before { @apply bg-danger; }
-  .spending-saving::before { @apply bg-good; }
-  .spending-investment::before { @apply bg-brand; }
-  .spending-debt::before { @apply bg-warn; }
-  .spending-transfer::before { @apply bg-muted; }
-  .spending-kind-mark {
-    @apply grid size-9 shrink-0 place-items-center rounded-xl text-sm font-bold;
-  }
-  .spending-expense .spending-kind-mark { @apply bg-danger-soft text-danger; }
-  .spending-saving .spending-kind-mark { @apply bg-good-soft text-good; }
-  .spending-investment .spending-kind-mark { @apply bg-brand-soft text-brand; }
-  .spending-debt .spending-kind-mark { @apply bg-warn-soft text-warn; }
-  .spending-transfer .spending-kind-mark { @apply bg-canvas text-muted; }
-  .spending-kind-badge.spending-expense { @apply bg-danger-soft text-danger; }
-  .spending-kind-badge.spending-saving { @apply bg-good-soft text-good; }
-  .spending-kind-badge.spending-investment { @apply bg-brand-soft text-brand; }
-  .spending-kind-badge.spending-debt { @apply bg-warn-soft text-warn; }
-  .spending-kind-badge.spending-transfer { @apply bg-canvas text-muted; }
-  .spending-priority-badge { @apply border border-line bg-canvas text-muted; }
-  .spending-plan-amount {
-    @apply text-base font-bold leading-tight tabular-nums wrap-anywhere;
-  }
-  .spending-metrics {
-    @apply grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] gap-3 rounded-lg bg-canvas px-3 py-2.5 text-sm sm:gap-4;
-  }
-  .spending-metrics dt { @apply mb-1 text-xs font-medium text-muted; }
   .badge { @apply inline-flex shrink-0 items-center rounded-full px-2 py-1 text-xs leading-none font-semibold; }
   .badge-good { @apply bg-good-soft text-good; }
   .badge-warn, .badge-pending { @apply bg-warn-soft text-warn; }
