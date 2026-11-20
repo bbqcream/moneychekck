@@ -2,7 +2,7 @@ import { calculateTimeline } from "@/lib/calc/balance";
 import { isMonth, isSalaryPeriod } from "@/lib/calc/monthly";
 import { calculateHourlySalary, parseCalendarDate } from "@/lib/calc/work-pay";
 import type { CurrentBalance, PlanData } from "@/types/plan-data";
-import { isSpendingPriority, itemKinds, type Item, type MonthlyRate, type MonthlyRule, type MonthlySalary, type MonthlySaving, type PayEvent, type RangeAmount, type Scenario } from "@/types/scenario";
+import { isSpendingPriority, itemKinds, type Item, type MonthlyRate, type MonthlyRule, type MonthlySalary, type MonthlySaving, type MonthlySavingRate, type PayEvent, type RangeAmount, type Scenario } from "@/types/scenario";
 
 const storageKey = "payplan:v1";
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -37,20 +37,30 @@ function hasUniqueIds(values: { id: string }[]) {
 }
 
 function isMonthlyRate(value: unknown): value is MonthlyRate {
-  return isRecord(value) && typeof value.startMonth === "string" && isMonth(value.startMonth) && isAmount(value.amount);
+  return isRecord(value) && value.salaryPercent === undefined && typeof value.startMonth === "string" && isMonth(value.startMonth) && isAmount(value.amount);
+}
+
+function hasMonthlyRates<T extends { startMonth: string }>(value: unknown, isRate: (rate: unknown) => rate is T) {
+  return isRecord(value) && isText(value.id) && isText(value.label) && Array.isArray(value.rates) &&
+    (value.priority === undefined || isSpendingPriority(value.priority)) &&
+    value.rates.length > 0 && value.rates.every(isRate) &&
+    new Set(value.rates.map(({ startMonth }) => startMonth)).size === value.rates.length;
 }
 
 function isMonthlyRule(value: unknown): value is MonthlyRule {
-  return isRecord(value) && isText(value.id) && isText(value.label) && Array.isArray(value.rates) &&
-    (value.priority === undefined || isSpendingPriority(value.priority)) &&
-    value.rates.length > 0 && value.rates.every(isMonthlyRate) &&
-    new Set(value.rates.map(({ startMonth }) => startMonth)).size === value.rates.length;
+  return hasMonthlyRates(value, isMonthlyRate);
+}
+
+function isMonthlySavingRate(value: unknown): value is MonthlySavingRate {
+  return isMonthlyRate(value) || (isRecord(value) && value.amount === undefined &&
+    typeof value.startMonth === "string" && isMonth(value.startMonth) &&
+    isUnsignedInteger(value.salaryPercent) && value.salaryPercent <= 100);
 }
 
 function isMonthlySaving(value: unknown): value is MonthlySaving {
   if (!isRecord(value)) return false;
   const allocation = value.allocation;
-  return isMonthlyRule(value) && isRecord(allocation) && isUnsignedInteger(allocation.savingsPercent) && allocation.savingsPercent <= 100 &&
+  return hasMonthlyRates(value, isMonthlySavingRate) && isRecord(allocation) && isUnsignedInteger(allocation.savingsPercent) && allocation.savingsPercent <= 100 &&
     isText(allocation.savingsLabel) && isText(allocation.investmentLabel);
 }
 

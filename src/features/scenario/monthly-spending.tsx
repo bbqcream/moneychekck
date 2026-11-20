@@ -3,6 +3,14 @@ import type { Timeline } from "@/lib/calc/balance";
 import { formatRange } from "@/lib/calc/money";
 import { kindLabels, priorityLabels } from "./labels";
 
+const kindTone: Record<string, string> = {
+  expense: "spending-expense",
+  saving: "spending-saving",
+  investment: "spending-investment",
+  debt: "spending-debt",
+  transfer: "spending-transfer",
+};
+
 export function MonthlySpending({ timeline, month, onEdit }: { timeline?: Timeline; month: string; onEdit: () => void }) {
   const groups = timeline?.groups.filter(({ event, items }) => event.date?.startsWith(month) && items.length > 0) ?? [];
 
@@ -20,25 +28,28 @@ export function MonthlySpending({ timeline, month, onEdit }: { timeline?: Timeli
             <span className="text-right">항목 후 잔액</span>
           </div>
           {groups.map(({ event, items }) => (
-            <div key={event.id} className="overflow-hidden rounded-xl border border-line">
-              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-line bg-canvas px-3 py-2.5 sm:px-4">
+            <div key={event.id} className="spending-event">
+              <div className="spending-event-head">
                 <time className="text-sm font-bold tabular-nums" dateTime={event.date ?? undefined}>{event.date}</time>
                 <h3 className="min-w-0 text-sm font-medium text-muted">{event.label}</h3>
               </div>
-              <ul className="divide-y divide-line">
+              <ul className="spending-list">
                 {items.map(({ item, amount, balance }) => (
-                  <li key={item.id} className="spending-grid grid items-start px-3 py-3 sm:items-center sm:px-4">
+                  <li key={item.id} className={`spending-item spending-grid ${kindTone[item.kind]}`}>
                     <div className="min-w-0">
-                      <h4 className="text-base leading-snug">{item.label}</h4>
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <span className="spending-kind-mark" aria-hidden="true">{kindLabels[item.kind].slice(0, 1)}</span>
+                        <h4 className="text-base leading-snug">{item.label}</h4>
+                      </div>
                       <div className="mt-1.5 flex flex-wrap gap-1.5">
-                        <span className={`badge ${item.kind === "saving" || item.kind === "investment" ? "badge-good" : "badge-kind"}`}>{kindLabels[item.kind]}</span>
-                        {item.priority && <span className="badge bg-canvas text-muted">{priorityLabels[item.priority]}</span>}
+                        <span className={`badge spending-kind-badge ${kindTone[item.kind]}`}>{kindLabels[item.kind]}</span>
+                        {item.priority && <span className="badge spending-priority-badge">{priorityLabels[item.priority]}</span>}
                       </div>
                     </div>
-                    <p className="self-start text-right text-base font-bold leading-tight tabular-nums wrap-anywhere sm:self-center sm:text-lg">
+                    <p className="spending-plan-amount">
                       <span className="sr-only">계획 금액 </span>{formatRange(amount)}<span className="ml-1 inline-block text-xs font-semibold whitespace-nowrap text-muted">만원</span>
                     </p>
-                    <div className="col-span-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 rounded-lg bg-canvas px-2.5 py-1.5 text-sm sm:col-span-1 sm:justify-end sm:bg-transparent sm:p-0 sm:text-right">
+                    <div className="spending-balance">
                       <span className="text-xs font-medium text-muted sm:sr-only">항목 후 잔액</span>
                       <BalanceText balance={balance} />
                     </div>

@@ -60,6 +60,24 @@ describe("월별 보기", () => {
 });
 
 describe("잔액 타임라인", () => {
+  it("월급 비율 저축은 다른 입금과 무관하게 해당 달의 세후 고정 월급에서 차감한다", () => {
+    const scenario = {
+      ...paycheck, items: [], events: [{ ...paycheck.events[0], date: "2027-01-05" }, { ...grant, date: "2027-03-10" }],
+      taxMode: "withholding-3.3" as const,
+      monthlySalary: {
+        label: "회사 월급", amount: 1320000, day: 10, startMonth: "2027-01", endMonth: "2027-02",
+        hourly: { schedule: "previous-month" as const, hourHundredths: 600, hourlyWon: 10000 },
+      },
+      monthlySavings: [{
+        id: "salary-saving", label: "월급 적립", rates: [{ startMonth: "2027-01", salaryPercent: 25 }],
+        allocation: { savingsPercent: 80, savingsLabel: "비상금", investmentLabel: "장기 투자" },
+      }],
+    };
+    const { groups } = calculateTimeline(scenario);
+    expect(groups.map(({ items }) => items.map(({ amount }) => amount.min))).toEqual([[], [255288, 63822], [232080, 58020], []]);
+    expect(groups[1].items.at(-1)?.balance.worst).toBe(groups[1].balance.worst - 319110);
+  });
+
   it("월급을 지정한 달마다 확실한 입금으로 반영하고 짧은 달에는 말일에 넣는다", () => {
     const scenario = {
       ...paycheck, events: [grant], items: [],

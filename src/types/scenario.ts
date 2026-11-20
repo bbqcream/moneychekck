@@ -22,7 +22,8 @@ export type Repetition = { unit: "daily" | "monthly"; count: number };
 export type MonthlyRate = { startMonth: string; amount: RangeAmount };
 export type MonthlyRule = { id: string; label: string; rates: MonthlyRate[]; priority?: SpendingPriority };
 export type SavingsAllocation = { savingsPercent: number; savingsLabel: string; investmentLabel: string };
-export type MonthlySaving = MonthlyRule & { allocation: SavingsAllocation };
+export type MonthlySavingRate = MonthlyRate | { startMonth: string; salaryPercent: number };
+export type MonthlySaving = Omit<MonthlyRule, "rates"> & { rates: MonthlySavingRate[]; allocation: SavingsAllocation };
 export type MonthlyRuleKind = "expense" | "saving";
 export type HourlySalary = { hourHundredths: number; hourlyWon: Won } & (
   { schedule: "manual"; days: number } | { schedule: "current-month" | "previous-month" }

@@ -1,4 +1,5 @@
-import type { Item, MonthlyRule, MonthlySalary, PayEvent, RangeAmount, Scenario } from "@/types/scenario";
+import type { Item, MonthlyRule, MonthlySalary, MonthlySaving, PayEvent, RangeAmount, Scenario } from "@/types/scenario";
+import { applyTax } from "./tax";
 import { calculateHourlySalary } from "./work-pay";
 
 export function isMonth(value: string): boolean {
@@ -42,24 +43,28 @@ export function monthlySalaryEvents(salary?: MonthlySalary): PayEvent[] {
   return events;
 }
 
-export function splitSavingsAmount(amount: RangeAmount, savingsPercent: number) {
-  const ratio = BigInt(savingsPercent);
-  const savings = {
+function percentAmount(amount: RangeAmount, percent: number): RangeAmount {
+  const ratio = BigInt(percent);
+  return {
     min: Number(BigInt(amount.min) * ratio / 100n),
     max: Number(BigInt(amount.max) * ratio / 100n),
   };
+}
+
+export function splitSavingsAmount(amount: RangeAmount, savingsPercent: number) {
+  const savings = percentAmount(amount, savingsPercent);
   return {
     savings,
     investment: { min: amount.min - savings.min, max: amount.max - savings.max },
   };
 }
 
-function rateForMonth(rule: MonthlyRule, month: string) {
-  return [...rule.rates].sort((a, b) => a.startMonth.localeCompare(b.startMonth))
+function rateForMonth<T extends { startMonth: string }>(rates: T[], month: string) {
+  return [...rates].sort((a, b) => a.startMonth.localeCompare(b.startMonth))
     .findLast(({ startMonth }) => startMonth <= month);
 }
 
-export function monthlyItems(scenario: Pick<Scenario, "monthlyExpenses" | "monthlySavings">, events: PayEvent[]) {
+export function monthlyItems(scenario: Scenario, events: PayEvent[], salaryEvents: PayEvent[]) {
   const byMonth = new Map<string, PayEvent>();
   for (const event of events) {
     if (!event.date) continue;
@@ -72,34 +77,40 @@ export function monthlyItems(scenario: Pick<Scenario, "monthlyExpenses" | "month
 
   type MonthlyItem = { item: Item; monthlyRuleId: string };
   const byEvent = new Map<string, MonthlyItem[]>();
+  const salaryByMonth = new Map(salaryEvents.map((salary) => [salary.date?.slice(0, 7), salary]));
   for (const [month, event] of byMonth) {
-    const items: MonthlyItem[] = [];
-    const add = (rule: MonthlyRule, kind: Item["kind"], label: string, amount: RangeAmount) => {
+    const add = (target: PayEvent, rule: MonthlyRule | MonthlySaving, kind: Item["kind"], label: string, amount: RangeAmount) => {
       if (amount.max === 0) return;
+      const items = byEvent.get(target.id) ?? [];
       const item: Item = {
         id: "monthly-" + kind + "-" + rule.id + "-" + month,
         label,
         kind,
         priority: rule.priority,
         amount,
-        afterEventId: event.id,
+        afterEventId: target.id,
         order: items.length,
       };
       items.push({ item, monthlyRuleId: rule.id });
+      byEvent.set(target.id, items);
     };
     for (const expense of scenario.monthlyExpenses ?? []) {
-      const rate = rateForMonth(expense, month);
-      if (rate) add(expense, "expense", expense.label, rate.amount);
+      const rate = rateForMonth(expense.rates, month);
+      if (rate) add(event, expense, "expense", expense.label, rate.amount);
     }
     for (const saving of scenario.monthlySavings ?? []) {
-      const rate = rateForMonth(saving, month);
+      const rate = rateForMonth(saving.rates, month);
       if (!rate) continue;
+      const target = "salaryPercent" in rate ? salaryByMonth.get(month) : event;
+      if (!target) continue;
+      const amount = "salaryPercent" in rate
+        ? percentAmount(applyTax(target.amount, scenario.taxMode, scenario.customTaxBasisPoints), rate.salaryPercent)
+        : rate.amount;
       const { savingsPercent, savingsLabel, investmentLabel } = saving.allocation;
-      const { savings, investment } = splitSavingsAmount(rate.amount, savingsPercent);
-      add(saving, "saving", savingsLabel, savings);
-      add(saving, "investment", investmentLabel, investment);
+      const { savings, investment } = splitSavingsAmount(amount, savingsPercent);
+      add(target, saving, "saving", savingsLabel, savings);
+      add(target, saving, "investment", investmentLabel, investment);
     }
-    byEvent.set(event.id, items);
   }
   return byEvent;
 }

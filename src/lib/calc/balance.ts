@@ -25,7 +25,7 @@ export function calculateTimeline(scenario: Scenario, filter: IncomeFilter = "al
     .filter((event) => filter === "all" || event.certainty === "confirmed")
     .sort((a, b) => (a.date ?? "9999-12-32").localeCompare(b.date ?? "9999-12-32"));
   const fixed = scenario.monthlyExpenses?.length || scenario.monthlySavings?.length
-    ? monthlyItems(scenario, events)
+    ? monthlyItems(scenario, events, salaryEvents)
     : undefined;
 
   let best = 0n;
