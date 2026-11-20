@@ -2,7 +2,7 @@ import { calculateTimeline } from "@/lib/calc/balance";
 import { isMonth } from "@/lib/calc/monthly";
 import { parseCalendarDate } from "@/lib/calc/work-pay";
 import type { CurrentBalance, PlanData } from "@/types/plan-data";
-import { isSpendingPriority, itemKinds, type Item, type MonthlyExpense, type MonthlyRate, type PayEvent, type RangeAmount, type Scenario } from "@/types/scenario";
+import { isSpendingPriority, itemKinds, type Item, type MonthlyRate, type MonthlyRule, type MonthlySaving, type PayEvent, type RangeAmount, type Scenario } from "@/types/scenario";
 
 const storageKey = "payplan:v1";
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -40,11 +40,18 @@ function isMonthlyRate(value: unknown): value is MonthlyRate {
   return isRecord(value) && typeof value.startMonth === "string" && isMonth(value.startMonth) && isAmount(value.amount);
 }
 
-function isMonthlyExpense(value: unknown): value is MonthlyExpense {
+function isMonthlyRule(value: unknown): value is MonthlyRule {
   return isRecord(value) && isText(value.id) && isText(value.label) && Array.isArray(value.rates) &&
     (value.priority === undefined || isSpendingPriority(value.priority)) &&
     value.rates.length > 0 && value.rates.every(isMonthlyRate) &&
     new Set(value.rates.map(({ startMonth }) => startMonth)).size === value.rates.length;
+}
+
+function isMonthlySaving(value: unknown): value is MonthlySaving {
+  if (!isRecord(value)) return false;
+  const allocation = value.allocation;
+  return isMonthlyRule(value) && isRecord(allocation) && isUnsignedInteger(allocation.savingsPercent) && allocation.savingsPercent <= 100 &&
+    isText(allocation.savingsLabel) && isText(allocation.investmentLabel);
 }
 
 function isScenario(value: unknown): value is Scenario {
@@ -57,9 +64,12 @@ function isScenario(value: unknown): value is Scenario {
   const rate = value.customTaxBasisPoints;
   if (rate !== undefined && (!isUnsignedInteger(rate) || rate > 10000)) return false;
   if (value.taxMode === "custom" && rate === undefined) return false;
-  const monthly = value.monthlyExpenses;
-  if (monthly !== undefined &&
-    (!Array.isArray(monthly) || !monthly.every(isMonthlyExpense) || !hasUniqueIds(monthly))) return false;
+  const expenses = value.monthlyExpenses;
+  if (expenses !== undefined &&
+    (!Array.isArray(expenses) || !expenses.every(isMonthlyRule) || !hasUniqueIds(expenses))) return false;
+  const savings = value.monthlySavings;
+  if (savings !== undefined &&
+    (!Array.isArray(savings) || !savings.every(isMonthlySaving) || !hasUniqueIds(savings))) return false;
   const eventIds = new Set(value.events.map(({ id }) => id));
   return eventIds.size === value.events.length && hasUniqueIds(value.items) &&
     value.items.every((item) => eventIds.has(item.afterEventId));

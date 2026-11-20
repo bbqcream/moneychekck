@@ -1,4 +1,4 @@
-import type { IncomeFilter, ItemKind, SpendingPriority } from "@/types/scenario";
+import type { IncomeFilter, ItemKind, MonthlyRuleKind, SpendingPriority } from "@/types/scenario";
 
 export const kindLabels: Record<ItemKind, string> = {
   expense: "지출",
@@ -17,4 +17,9 @@ export const priorityLabels: Record<SpendingPriority, string> = {
   P1: "P1 필수",
   P2: "P2 중요",
   P3: "P3 선택",
+};
+
+export const monthlyRuleLabels: Record<MonthlyRuleKind, string> = {
+  expense: "월 고정지출",
+  saving: "월 고정저축",
 };

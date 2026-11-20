@@ -11,7 +11,7 @@ import { usePlans } from "@/store/provider";
 import type { PlanData } from "@/types/plan-data";
 import { CurrentBalanceCard } from "./current-balance-card";
 import { examplePlan } from "./example";
-import { MonthlyExpenses } from "./monthly-expenses";
+import { MonthlyRules } from "./monthly-rules";
 import { NameDialog } from "./name-dialog";
 
 const updatedDate = new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium" });
@@ -45,7 +45,14 @@ export function Dashboard() {
   function downloadExample() {
     const now = new Date().toISOString();
     downloadPlanJson({
-      scenarios: [{ ...examplePlan, id: "import-example", name: "월급과 지원금 예시", createdAt: now, updatedAt: now }],
+      scenarios: [{
+        ...examplePlan, id: "import-example", name: "월급과 지원금 예시", createdAt: now, updatedAt: now,
+        monthlySavings: [{
+          id: "example-savings", label: "월 적립 예시",
+          allocation: { savingsPercent: 80, savingsLabel: "비상금", investmentLabel: "장기 투자" },
+          rates: [{ startMonth: "2026-11", amount: { min: 100000, max: 100000 } }],
+        }],
+      }],
     }, "payplan-example.json");
   }
 
@@ -73,22 +80,20 @@ export function Dashboard() {
           <CurrentBalanceCard />
         </div>
       </section>
-      <section className="panel mt-4 p-4 sm:p-5" aria-labelledby="home-fixed-title">
-        <div className="section-header flex-wrap">
-          <h2 id="home-fixed-title">월 고정지출</h2>
-          {fixedScenario && sorted.length > 1 && (
-            <label className="field w-full sm:w-auto">
-              고정지출 시나리오
-              <select value={fixedScenario.id} onChange={(event) => setFixedScenarioId(event.target.value)}>
-                {sorted.map(({ id, name }) => <option key={id} value={id}>{name}</option>)}
-              </select>
-            </label>
-          )}
-          {fixedScenario && sorted.length === 1 && <span className="meta">{fixedScenario.name}</span>}
+      <section className="mt-4" aria-label="월 고정지출과 저축">
+        {fixedScenario && sorted.length > 1 && (
+          <label className="field mb-3 sm:max-w-sm">
+            고정지출·저축 시나리오
+            <select value={fixedScenario.id} onChange={(event) => setFixedScenarioId(event.target.value)}>
+              {sorted.map(({ id, name }) => <option key={id} value={id}>{name}</option>)}
+            </select>
+          </label>
+        )}
+        {fixedScenario && sorted.length === 1 && <p className="meta mb-2">적용 시나리오 · {fixedScenario.name}</p>}
+        <div className="grid gap-3 sm:grid-cols-2">
+          <MonthlyRules key={"expense-" + fixedScenario?.id} scenario={fixedScenario} kind="expense" />
+          <MonthlyRules key={"saving-" + fixedScenario?.id} scenario={fixedScenario} kind="saving" />
         </div>
-        {fixedScenario
-          ? <MonthlyExpenses key={fixedScenario.id} scenario={fixedScenario} />
-          : <p className="meta">시나리오를 만들면 월 고정지출을 추가할 수 있어요.</p>}
       </section>
       <section aria-labelledby="plans-title" className="plans-section">
         <div className="section-header">

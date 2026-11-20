@@ -43,7 +43,7 @@ function testCloud(initial: Snapshot) {
 describe("계획 백업", () => {
   const currentBalance = { amount: 123456, recordedAt: "2026-11-20T00:00:00.000Z" };
 
-  it("입금 메모, 월 고정지출, 우선순위와 현재 잔고를 한 번에 가져온다", () => {
+  it("입금 메모, 월 고정지출과 고정저축, 우선순위와 현재 잔고를 한 번에 가져온다", () => {
     const plan = {
       ...paycheck,
       events: [{ ...paycheck.events[0], note: "12월 예정" }],
@@ -52,9 +52,18 @@ describe("계획 백업", () => {
         id: "transport", label: "교통비", priority: "P2" as const,
         rates: [{ startMonth: "2027-01", amount: { min: 60000, max: 60000 } }],
       }],
+      monthlySavings: [{
+        id: "savings", label: "월 적립",
+        allocation: { savingsPercent: 80, savingsLabel: "비상금", investmentLabel: "장기 투자" },
+        rates: [{ startMonth: "2027-01", amount: { min: 100000, max: 100000 } }],
+      }],
     };
     const data = { scenarios: [plan], currentBalance };
     expect(parsePlanDocument(serializePlanData(data))).toEqual(data);
+    const invalid = { ...plan, monthlySavings: [{
+      ...plan.monthlySavings[0], allocation: { ...plan.monthlySavings[0].allocation, savingsPercent: 101 },
+    }] };
+    expect(() => parsePlanDocument(serializePlanData({ scenarios: [invalid] }))).toThrow();
   });
 
   it("기존 백업을 읽고, 중복 시나리오와 잘못된 우선순위나 잔고는 거절한다", () => {

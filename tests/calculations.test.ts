@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { calculateTimeline } from "@/lib/calc/balance";
+import { splitSavingsAmount } from "@/lib/calc/monthly";
 import { summarizePriorities } from "@/lib/calc/priorities";
 import { compareTimelines } from "@/lib/calc/compare";
 import { formatManwon, parseManwon, parseRange } from "@/lib/calc/money";
@@ -18,6 +19,34 @@ const grant: PayEvent = {
 };
 
 describe("잔액 타임라인", () => {
+  it("월 고정저축을 저축과 투자로 나누고 한 달에 한 번만 반영한다", () => {
+    const first = paycheck.events[0];
+    const second = { ...first, id: "bonus", date: "2026-11-30" };
+    const scenario = {
+      ...paycheck, items: [], events: [second, first],
+      monthlySavings: [{
+        id: "long-term", label: "매달 모으기", priority: "P2" as const,
+        allocation: { savingsPercent: 80, savingsLabel: "비상금", investmentLabel: "장기 투자" },
+        rates: [{ startMonth: "2026-11", amount: { min: 100000, max: 100000 } }],
+      }],
+    };
+    const { groups } = calculateTimeline(scenario);
+    expect(groups[0].items.map(({ item, amount, balance }) => [item.kind, item.label, amount.min, balance.best])).toEqual([
+      ["saving", "비상금", 80000, 880000],
+      ["investment", "장기 투자", 20000, 860000],
+    ]);
+    expect(groups[1].items).toEqual([]);
+  });
+
+  it("저축 비율을 원 단위로 절사하고 나머지를 투자에 배정한다", () => {
+    const amount = { min: 100001, max: 100004 };
+    expect(splitSavingsAmount(amount, 80)).toEqual({
+      savings: { min: 80000, max: 80003 }, investment: { min: 20001, max: 20001 },
+    });
+    expect(splitSavingsAmount(amount, 100)).toEqual({ savings: amount, investment: { min: 0, max: 0 } });
+    expect(splitSavingsAmount(amount, 0)).toEqual({ savings: { min: 0, max: 0 }, investment: amount });
+  });
+
   it("우선순위별 합계에 실제 반영된 월 고정지출과 반복 항목을 포함한다", () => {
     const scenario = {
       ...paycheck,

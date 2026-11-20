@@ -2,7 +2,13 @@ import { BalanceText } from "@/components/balance-text";
 import type { TimelineGroup } from "@/lib/calc/balance";
 import { formatRange } from "@/lib/calc/money";
 import type { Item, PayEvent } from "@/types/scenario";
-import { kindLabels, priorityLabels } from "./labels";
+import { kindLabels, monthlyRuleLabels, priorityLabels } from "./labels";
+
+const monthlyItemLabels: Partial<Record<Item["kind"], string>> = {
+  expense: monthlyRuleLabels.expense,
+  saving: monthlyRuleLabels.saving,
+  investment: "월 고정투자",
+};
 
 type TimelineActions = {
   addItem: (event: PayEvent) => void;
@@ -16,7 +22,7 @@ type TimelineActions = {
 function EventGroup({ group, actions }: { group: TimelineGroup; actions: TimelineActions }) {
   const { event, balance, amount, items } = group;
   const taxChanged = amount.min !== event.amount.min || amount.max !== event.amount.max;
-  const manual = items.filter(({ fixedExpenseId }) => !fixedExpenseId);
+  const manual = items.filter(({ monthlyRuleId }) => !monthlyRuleId);
   return (
     <article className="event-card">
       <div className="event-head">
@@ -45,12 +51,14 @@ function EventGroup({ group, actions }: { group: TimelineGroup; actions: Timelin
       </div>
       {items.length > 0 && (
         <ol className="item-list">
-          {items.map(({ item, amount, balance, fixedExpenseId }) => (
+          {items.map(({ item, amount, balance, monthlyRuleId }) => (
             <li className="item-row" key={item.id}>
               <div className="entry-main">
                 <div className="entry-title">
                   <h4>{item.label}</h4>
-                  <span className="badge badge-kind">{fixedExpenseId ? "월 고정지출" : kindLabels[item.kind]}</span>
+                  <span className="badge badge-kind">
+                    {(monthlyRuleId && monthlyItemLabels[item.kind]) || kindLabels[item.kind]}
+                  </span>
                   {item.priority && <span className="badge badge-kind">{priorityLabels[item.priority]}</span>}
                 </div>
                 <p className="meta">
@@ -62,7 +70,7 @@ function EventGroup({ group, actions }: { group: TimelineGroup; actions: Timelin
                 </p>
                 {item.note && <p className="item-note">{item.note}</p>}
               </div>
-              {!fixedExpenseId && <div className="entry-actions">
+              {!monthlyRuleId && <div className="entry-actions">
                 {manual.length > 1 && (
                   <>
                     <button type="button" className="btn btn-quiet order-button" aria-label={item.label + " 위로 이동"} disabled={item.id === manual[0].item.id} onClick={() => actions.moveItem(item, -1)}>↑</button>

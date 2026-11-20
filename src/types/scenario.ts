@@ -20,7 +20,10 @@ export const isSpendingPriority = (value: unknown): value is SpendingPriority =>
   spendingPriorities.some((priority) => priority === value);
 export type Repetition = { unit: "daily" | "monthly"; count: number };
 export type MonthlyRate = { startMonth: string; amount: RangeAmount };
-export type MonthlyExpense = { id: string; label: string; rates: MonthlyRate[]; priority?: SpendingPriority };
+export type MonthlyRule = { id: string; label: string; rates: MonthlyRate[]; priority?: SpendingPriority };
+export type SavingsAllocation = { savingsPercent: number; savingsLabel: string; investmentLabel: string };
+export type MonthlySaving = MonthlyRule & { allocation: SavingsAllocation };
+export type MonthlyRuleKind = "expense" | "saving";
 
 export type Item = {
   id: string;
@@ -41,7 +44,8 @@ export type Scenario = {
   name: string;
   events: PayEvent[];
   items: Item[];
-  monthlyExpenses?: MonthlyExpense[];
+  monthlyExpenses?: MonthlyRule[];
+  monthlySavings?: MonthlySaving[];
   taxMode: TaxMode;
   customTaxBasisPoints?: number;
   createdAt: string;

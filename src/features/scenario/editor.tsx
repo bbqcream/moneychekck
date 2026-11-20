@@ -11,7 +11,7 @@ import type { Item, PayEvent, RangeAmount, Scenario } from "@/types/scenario";
 import { CurrentBalanceCard } from "./current-balance-card";
 import { EventDialog } from "./event-dialog";
 import { ItemDialog } from "./item-dialog";
-import { MonthlyExpenses } from "./monthly-expenses";
+import { MonthlyRules } from "./monthly-rules";
 import { NameDialog } from "./name-dialog";
 import { PrioritySummary } from "./priority-summary";
 import { TaxDialog, taxLabel } from "./tax-dialog";
@@ -96,7 +96,8 @@ export function Editor({ scenario }: { scenario: Scenario }) {
             <button type="button" className="btn btn-secondary" disabled={!groups.length} onClick={() => setDialog({ type: "memo" })}>아이폰 메모 내보내기</button>
             <button type="button" className="btn btn-quiet danger-text" onClick={() => setDialog({ type: "delete-plan" })}>시나리오 삭제</button>
           </div>
-          <MonthlyExpenses scenario={scenario} collapsible />
+          <MonthlyRules scenario={scenario} kind="expense" collapsible />
+          <MonthlyRules scenario={scenario} kind="saving" collapsible />
         </aside>
         <section className="timeline" aria-labelledby="timeline-heading">
           <div className="section-header">
