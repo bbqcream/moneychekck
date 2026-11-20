@@ -9,11 +9,14 @@ export type PayEvent = {
   amount: RangeAmount;
   date: string | null;
   certainty: Certainty;
+  note?: string;
 };
 
 export const itemKinds = ["expense", "saving", "investment", "debt", "transfer"] as const;
 export type ItemKind = (typeof itemKinds)[number];
 export type Repetition = { unit: "daily" | "monthly"; count: number };
+export type MonthlyRate = { startMonth: string; amount: RangeAmount };
+export type MonthlyExpense = { id: string; label: string; rates: MonthlyRate[] };
 
 export type Item = {
   id: string;
@@ -33,6 +36,7 @@ export type Scenario = {
   name: string;
   events: PayEvent[];
   items: Item[];
+  monthlyExpenses?: MonthlyExpense[];
   taxMode: TaxMode;
   customTaxBasisPoints?: number;
   createdAt: string;

@@ -73,6 +73,35 @@ describe("잔액 타임라인", () => {
     expect(groups[0].amount).toEqual({ min: 928320, max: 928320 });
     expect(groups[0].items.map(({ item }) => item.id)).toEqual(["guitar", "debt"]);
   });
+
+  it("월 고정지출은 같은 달에 한 번만 차감하고 변경 월부터 새 금액을 적용한다", () => {
+    const first = { ...paycheck.events[0], date: "2026-12-10" };
+    const second = { ...first, id: "second", date: "2026-12-24" };
+    const third = { ...first, id: "third", date: "2027-01-10" };
+    const plan = {
+      ...paycheck, items: [], events: [grant, second, third, first],
+      monthlyExpenses: [{
+        id: "transportation", label: "교통비", rates: [
+          { startMonth: "2026-11", amount: { min: 40000, max: 40000 } },
+          { startMonth: "2027-01", amount: { min: 60000, max: 60000 } },
+        ],
+      }],
+    };
+    const { groups } = calculateTimeline(plan);
+    expect(groups.map(({ items }) => items.map(({ amount }) => amount.min))).toEqual([[40000], [], [60000], []]);
+    expect(groups[0].items[0].balance.worst).toBe(920000);
+    expect(groups[2].items[0].balance.worst).toBe(2780000);
+  });
+
+  it("미정 입금이 앞서도 월 고정지출은 해당 월의 첫 확실한 입금에 배정한다", () => {
+    const first = { ...grant, date: "2026-11-10" };
+    const plan = {
+      ...paycheck, events: [first, ...paycheck.events], items: [],
+      monthlyExpenses: [{ id: "transportation", label: "교통비", rates: [{ startMonth: "2026-11", amount: { min: 40000, max: 40000 } }] }],
+    };
+    expect(calculateTimeline(plan).groups.map(({ items }) => items.length)).toEqual([0, 1]);
+    expect(calculateTimeline(plan, "confirmed").groups[0].items).toHaveLength(1);
+  });
 });
 
 describe("원 단위 입력과 세금", () => {
