@@ -71,6 +71,22 @@ export function Editor({ scenario }: { scenario: Scenario }) {
     if (issue) setError(issue);
   }
 
+  function moveItemToEvent(item: Item, eventId: string) {
+    return update((plan) => {
+      const current = plan.items.find(({ id }) => id === item.id);
+      if (!current || current.afterEventId === eventId) return plan;
+      const orders = new Map(itemsForEvent(plan.items, eventId).map(({ id }, order) => [id, order]));
+      return {
+        ...plan,
+        items: plan.items.map((entry) => {
+          if (entry.id === current.id) return { ...entry, afterEventId: eventId, order: orders.size };
+          const order = orders.get(entry.id);
+          return order === undefined ? entry : { ...entry, order };
+        }),
+      };
+    });
+  }
+
   return (
     <>
       <a className="back-link" href="#/">시나리오 목록</a>
@@ -116,6 +132,7 @@ export function Editor({ scenario }: { scenario: Scenario }) {
               editItem: (event, item) => setDialog({ type: "item", event, item }),
               deleteItem: (item) => setDialog({ type: "delete-item", item }),
               moveItem,
+              moveItemToEvent,
             }} />
           ) : (
             <div className="empty-panel">

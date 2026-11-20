@@ -1,8 +1,11 @@
+import { useState } from "react";
 import { BalanceText } from "@/components/balance-text";
 import type { TimelineGroup } from "@/lib/calc/balance";
 import { formatRange } from "@/lib/calc/money";
 import type { Item, PayEvent } from "@/types/scenario";
+import { ItemMoveDialog } from "./item-move-dialog";
 import { kindLabels, monthlyRuleLabels, priorityLabels } from "./labels";
+import { useItemDrag } from "./use-item-drag";
 
 const monthlyItemLabels: Partial<Record<Item["kind"], string>> = {
   expense: monthlyRuleLabels.expense,
@@ -17,14 +20,20 @@ type TimelineActions = {
   editItem: (event: PayEvent, item: Item) => void;
   deleteItem: (item: Item) => void;
   moveItem: (item: Item, direction: -1 | 1) => void;
+  moveItemToEvent: (item: Item, eventId: string) => string | null;
 };
 
-function EventGroup({ group, actions }: { group: TimelineGroup; actions: TimelineActions }) {
+function EventGroup({ group, actions, drag, openMove }: {
+  group: TimelineGroup;
+  actions: TimelineActions;
+  drag: ReturnType<typeof useItemDrag>;
+  openMove?: (item: Item) => void;
+}) {
   const { event, balance, amount, items, monthlySalary } = group;
   const taxChanged = amount.min !== event.amount.min || amount.max !== event.amount.max;
   const manual = items.filter(({ monthlyRuleId }) => !monthlyRuleId);
   return (
-    <article className="event-card">
+    <article className={"event-card" + (drag.targetId === event.id ? " ring-2 ring-brand" : "")} data-drop-event={event.id}>
       <div className="event-head">
         <div className="event-icon" aria-hidden="true">+</div>
         <div className="entry-main">
@@ -53,7 +62,7 @@ function EventGroup({ group, actions }: { group: TimelineGroup; actions: Timelin
       {items.length > 0 && (
         <ol className="item-list">
           {items.map(({ item, amount, balance, monthlyRuleId }) => (
-            <li className="item-row" key={item.id}>
+            <li className={"item-row" + (drag.draggedId === item.id ? " opacity-60" : "")} key={item.id}>
               <div className="entry-main">
                 <div className="entry-title">
                   <h4>{item.label}</h4>
@@ -72,6 +81,8 @@ function EventGroup({ group, actions }: { group: TimelineGroup; actions: Timelin
                 {item.note && <p className="item-note">{item.note}</p>}
               </div>
               {!monthlyRuleId && <div className="entry-actions">
+                {openMove && <button type="button" className="btn btn-quiet cursor-grab! touch-none select-none active:cursor-grabbing!"
+                  aria-label={item.label + " 다른 입금으로 이동"} {...drag.handle(item, openMove)}>↔ 이동</button>}
                 {manual.length > 1 && (
                   <>
                     <button type="button" className="btn btn-quiet order-button" aria-label={item.label + " 위로 이동"} disabled={item.id === manual[0].item.id} onClick={() => actions.moveItem(item, -1)}>↑</button>
@@ -97,13 +108,32 @@ function EventGroup({ group, actions }: { group: TimelineGroup; actions: Timelin
 }
 
 export function TimelineView({ groups, actions }: { groups: TimelineGroup[]; actions: TimelineActions }) {
+  const [moving, setMoving] = useState<Item>();
+  const [notice, setNotice] = useState("");
+  function move(item: Item, eventId: string) {
+    const destination = groups.find(({ event }) => event.id === eventId)?.event;
+    if (!destination) return "이동할 입금을 찾을 수 없어요.";
+    const issue = actions.moveItemToEvent(item, eventId);
+    if (!issue) setNotice(`‘${item.label}’ 항목을 ‘${destination.label}’ 입금 아래로 옮겼어요.`);
+    return issue;
+  }
+  const drag = useItemDrag((item, eventId) => {
+    const issue = move(item, eventId);
+    if (issue) setNotice(issue);
+  });
+  const openMove = groups.length > 1 ? setMoving : undefined;
   const dated = groups.filter(({ event }) => event.date !== null);
   const undated = groups.filter(({ event }) => event.date === null);
   return (
     <div className="timeline-groups">
-      {dated.map((group) => <EventGroup key={group.event.id} group={group} actions={actions} />)}
+      <div role="status" className={notice ? "meta" : "sr-only"}>{notice}</div>
+      {openMove && groups.some(({ items }) => items.some(({ monthlyRuleId }) => !monthlyRuleId)) && (
+        <p className="meta">‘이동’을 잡아 다른 입금 카드에 놓거나, 눌러서 이동할 입금을 고르세요.</p>
+      )}
+      {dated.map((group) => <EventGroup key={group.event.id} group={group} actions={actions} drag={drag} openMove={openMove} />)}
       {undated.length > 0 && <h3 className="timeline-divider">시기 미정</h3>}
-      {undated.map((group) => <EventGroup key={group.event.id} group={group} actions={actions} />)}
+      {undated.map((group) => <EventGroup key={group.event.id} group={group} actions={actions} drag={drag} openMove={openMove} />)}
+      {moving && <ItemMoveDialog item={moving} events={groups.map(({ event }) => event)} onMove={move} onClose={() => setMoving(undefined)} />}
     </div>
   );
 }
