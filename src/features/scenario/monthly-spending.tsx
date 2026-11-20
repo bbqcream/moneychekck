@@ -2,7 +2,7 @@ import { useState } from "react";
 import { BalanceText } from "@/components/balance-text";
 import type { TimelineGroup } from "@/lib/calc/balance";
 import { formatRange } from "@/lib/calc/money";
-import type { Item } from "@/types/scenario";
+import type { Item, ItemKind } from "@/types/scenario";
 import { ItemMoveDialog } from "./item-move-dialog";
 import { kindLabels, priorityLabels } from "./labels";
 import { useItemDrag } from "./use-item-drag";
@@ -13,6 +13,14 @@ const kindTone: Record<string, string> = {
   investment: "spending-investment",
   debt: "spending-debt",
   transfer: "spending-transfer",
+};
+
+const kindEmoji: Record<ItemKind, string> = {
+  expense: "🛒",
+  saving: "🐷",
+  investment: "📈",
+  debt: "🧾",
+  transfer: "💸",
 };
 
 export function MonthlySpending({ groups, onEdit, onMove }: {
@@ -64,7 +72,7 @@ export function MonthlySpending({ groups, onEdit, onMove }: {
                   <li key={item.id} className={`spending-item spending-grid ${kindTone[item.kind]}${drag.draggedId === item.id ? " opacity-60" : ""}`}>
                     <div className="min-w-0">
                       <div className="flex min-w-0 items-center gap-2.5">
-                        <span className="spending-kind-mark" aria-hidden="true">{kindLabels[item.kind].slice(0, 1)}</span>
+                        <span className="spending-kind-mark" aria-hidden="true">{kindEmoji[item.kind]}</span>
                         <h4 className="text-base leading-snug">{item.label}</h4>
                       </div>
                       <div className="mt-1.5 flex flex-wrap gap-1.5">
