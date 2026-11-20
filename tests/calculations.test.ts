@@ -136,4 +136,9 @@ describe("비교와 메모", () => {
       "* 케이블 3~5 → 잔액 14 ~ 9.5",
     );
   });
+
+  it("지원금 같은 입금은 메모에서 입금 섹션으로 표시한다", () => {
+    const timeline = calculateTimeline({ ...paycheck, events: [...paycheck.events, grant] });
+    expect(formatMemo(timeline)).toContain("[3. 입금]\n* 지원금 15~25 → 잔액 39 ~ 24.5");
+  });
 });

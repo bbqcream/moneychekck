@@ -15,8 +15,9 @@ export function formatMemo(timeline: Timeline): string {
   const sections: string[] = [];
   for (const [index, group] of timeline.groups.entries()) {
     const count = sections.length + 1;
+    const heading = group.event.label.includes("월급") ? "월급" : "입금";
     sections.push(
-      "[" + count + ". 월급]\n* " + clean(group.event.label) + " " + formatRange(group.amount) +
+      "[" + count + ". " + heading + "]\n* " + clean(group.event.label) + " " + formatRange(group.amount) +
       " → 잔액 " + formatBalance(group.balance),
     );
     if (group.items.length) {
