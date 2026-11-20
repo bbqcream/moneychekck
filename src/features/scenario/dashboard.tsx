@@ -11,7 +11,9 @@ import { usePlans } from "@/store/provider";
 import type { PlanData } from "@/types/plan-data";
 import { CurrentBalanceCard } from "./current-balance-card";
 import { examplePlan } from "./example";
+import { MonthlyOverview } from "./monthly-overview";
 import { MonthlyRules } from "./monthly-rules";
+import { MonthlySalaryCard } from "./monthly-salary-card";
 import { NameDialog } from "./name-dialog";
 
 const updatedDate = new Intl.DateTimeFormat("ko-KR", { dateStyle: "medium" });
@@ -26,10 +28,11 @@ export function Dashboard() {
   const online = usePlans((state) => state.syncPhase !== null);
   const [dialog, setDialog] = useState<"new" | "clear" | "import" | null>(null);
   const [importStatus, setImportStatus] = useState("");
-  const [fixedScenarioId, setFixedScenarioId] = useState("");
-  const sorted = [...data.scenarios].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
-  const latest = sorted[0];
-  const fixedScenario = sorted.find(({ id }) => id === fixedScenarioId) ?? latest;
+  const [selectedId, setSelectedId] = useState("");
+  const plans = [...data.scenarios].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+    .map((scenario) => ({ scenario, timeline: calculateTimeline(scenario) }));
+  const selected = plans.find(({ scenario }) => scenario.id === selectedId) ?? plans[0];
+  const scenario = selected?.scenario;
   const close = () => setDialog(null);
 
   function addImported(imported: PlanData) {
@@ -47,6 +50,7 @@ export function Dashboard() {
     downloadPlanJson({
       scenarios: [{
         ...examplePlan, id: "import-example", name: "월급과 지원금 예시", createdAt: now, updatedAt: now,
+        monthlySalary: { label: "회사 월급", amount: 960000, day: 10, startMonth: "2026-12", endMonth: "2027-02" },
         monthlySavings: [{
           id: "example-savings", label: "월 적립 예시",
           allocation: { savingsPercent: 80, savingsLabel: "비상금", investmentLabel: "장기 투자" },
@@ -58,67 +62,54 @@ export function Dashboard() {
 
   return (
     <>
-      <section className="dashboard-hero" aria-labelledby="dashboard-title">
-        <div className="hero-copy">
-          <h1 id="dashboard-title">월급 시나리오</h1>
-          <p>들어올 돈을 적고, 쓸 일과 모을 돈을 정해 보세요.<br className="hidden sm:block" /> 항목마다 남는 돈을 바로 확인할 수 있어요.</p>
+      <div className="page-heading items-end!">
+        <h1>월급 시나리오</h1>
+        {scenario && plans.length > 1 && (
+          <label className="field w-full sm:w-auto sm:max-w-sm">
+            보기 시나리오
+            <select value={scenario.id} onChange={(event) => setSelectedId(event.target.value)}>
+              {plans.map(({ scenario: { id, name } }) => <option key={id} value={id}>{name}</option>)}
+            </select>
+          </label>
+        )}
+        {scenario && plans.length === 1 && <a className="back-link mb-0!" href={planLink(scenario.id)}>{scenario.name}</a>}
+      </div>
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,3fr)_minmax(0,1fr)]">
+        <MonthlyOverview timeline={selected?.timeline} />
+        <CurrentBalanceCard />
+      </div>
+      <section className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-label="고정 월급·지출·저축">
+        <MonthlySalaryCard key={"salary-" + scenario?.id} scenario={scenario} />
+        <MonthlyRules key={"expense-" + scenario?.id} scenario={scenario} kind="expense" />
+        <MonthlyRules key={"saving-" + scenario?.id} scenario={scenario} kind="saving" />
+      </section>
+      <section aria-labelledby="plans-title" className="plans-section">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <h2 id="plans-title">세부 시나리오</h2>
           <div className="button-row">
             <button type="button" className="btn btn-primary" onClick={() => setDialog("new")}>+ 새 시나리오</button>
             <button type="button" className="btn btn-secondary" onClick={() => {
               location.hash = planLink(createPlan("월급과 지원금 예시", examplePlan));
             }}>예시로 시작</button>
+            {plans.length > 0 && <a href="#/compare" className="btn btn-secondary">시나리오 비교</a>}
           </div>
         </div>
-        <div className="grid gap-3">
-          <div className="summary-card dashboard-summary">
-            <p>최근 시나리오 잔액</p>
-            {latest?.events.length ? <BalanceText balance={calculateTimeline(latest).finalBalance} large /> : <strong className="summary-placeholder">—</strong>}
-            {latest ? (
-              <a className="summary-caption summary-link" href={planLink(latest.id)}>{latest.name}</a>
-            ) : <p className="summary-caption">시나리오를 추가하면 잔액을 볼 수 있어요.</p>}
-          </div>
-          <CurrentBalanceCard />
-        </div>
-      </section>
-      <section className="mt-4" aria-label="월 고정지출과 저축">
-        {fixedScenario && sorted.length > 1 && (
-          <label className="field mb-3 sm:max-w-sm">
-            고정지출·저축 시나리오
-            <select value={fixedScenario.id} onChange={(event) => setFixedScenarioId(event.target.value)}>
-              {sorted.map(({ id, name }) => <option key={id} value={id}>{name}</option>)}
-            </select>
-          </label>
-        )}
-        {fixedScenario && sorted.length === 1 && <p className="meta mb-2">적용 시나리오 · {fixedScenario.name}</p>}
-        <div className="grid gap-3 sm:grid-cols-2">
-          <MonthlyRules key={"expense-" + fixedScenario?.id} scenario={fixedScenario} kind="expense" />
-          <MonthlyRules key={"saving-" + fixedScenario?.id} scenario={fixedScenario} kind="saving" />
-        </div>
-      </section>
-      <section aria-labelledby="plans-title" className="plans-section">
-        <div className="section-header">
-          <div className="title-with-count">
-            <h2 id="plans-title">내 시나리오</h2>
-            <span className="badge badge-kind">{sorted.length}개</span>
-          </div>
-          {sorted.length > 0 && <a href="#/compare" className="btn btn-secondary">시나리오 비교</a>}
-        </div>
-        {sorted.length ? (
+        {plans.length ? (
           <ul className="plans-grid">
-            {sorted.map((scenario) => (
+            {plans.map(({ scenario, timeline }) => (
               <li key={scenario.id} className="plan-card">
                 <a href={planLink(scenario.id)}>
                   <div className="plan-card-top">
                     <div className="min-w-0">
                       <h3>{scenario.name}</h3>
-                      <p className="meta">입금 {scenario.events.length}건 · 항목 {scenario.items.length}개</p>
+                      <p className="meta">입금 {timeline.groups.length}건 · 항목 {scenario.items.length}개</p>
                     </div>
                     <span className="plan-open">열기</span>
                   </div>
                   <div className="plan-card-bottom">
                     <div>
                       <p className="meta">예상 잔액</p>
-                      {scenario.events.length ? <BalanceText balance={calculateTimeline(scenario).finalBalance} /> : <span className="muted">입금 대기</span>}
+                      {timeline.groups.length ? <BalanceText balance={timeline.finalBalance} /> : <span className="muted">입금 대기</span>}
                     </div>
                     <time className="meta" dateTime={scenario.updatedAt}>{updatedDate.format(new Date(scenario.updatedAt))}</time>
                   </div>
@@ -151,7 +142,7 @@ export function Dashboard() {
           }}>기존 브라우저 계획 가져오기</button>}
           <button type="button" className="btn btn-secondary" onClick={() => setDialog("import")}>JSON 불러오기</button>
           <button type="button" className="btn btn-secondary" onClick={() => downloadPlanJson(data, "payplan-backup.json")}>전체 JSON 내보내기</button>
-          <button type="button" className="btn btn-quiet danger-text" disabled={!sorted.length && !data.currentBalance && !issue} onClick={() => setDialog("clear")}>전체 삭제</button>
+          <button type="button" className="btn btn-quiet danger-text" disabled={!plans.length && !data.currentBalance && !issue} onClick={() => setDialog("clear")}>전체 삭제</button>
         </div>
       </section>
       {importStatus && <p className="meta mt-3" role="status">{importStatus}</p>}

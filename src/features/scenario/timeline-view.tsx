@@ -20,7 +20,7 @@ type TimelineActions = {
 };
 
 function EventGroup({ group, actions }: { group: TimelineGroup; actions: TimelineActions }) {
-  const { event, balance, amount, items } = group;
+  const { event, balance, amount, items, monthlySalary } = group;
   const taxChanged = amount.min !== event.amount.min || amount.max !== event.amount.max;
   const manual = items.filter(({ monthlyRuleId }) => !monthlyRuleId);
   return (
@@ -33,6 +33,7 @@ function EventGroup({ group, actions }: { group: TimelineGroup; actions: Timelin
             <span className={"badge " + (event.certainty === "confirmed" ? "badge-good" : "badge-pending")}>
               {event.certainty === "confirmed" ? "확실" : "미정"}
             </span>
+            {monthlySalary && <span className="badge badge-kind">고정 월급</span>}
           </div>
           <p className="meta">
             {event.date ?? "시기 미정"} · 입금 {formatRange(event.amount)}만원
@@ -40,10 +41,10 @@ function EventGroup({ group, actions }: { group: TimelineGroup; actions: Timelin
           </p>
           {event.note && <p className="item-note">{event.note}</p>}
         </div>
-        <div className="entry-actions">
+        {!monthlySalary && <div className="entry-actions">
           <button type="button" className="btn btn-quiet" aria-label={event.label + " 입금 수정"} onClick={() => actions.editEvent(event)}>수정</button>
           <button type="button" className="btn btn-quiet" aria-label={event.label + " 입금 삭제"} onClick={() => actions.deleteEvent(event)}>삭제</button>
-        </div>
+        </div>}
         <div className="entry-balance event-balance">
           <span>입금 후 잔액</span>
           <BalanceText balance={balance} />

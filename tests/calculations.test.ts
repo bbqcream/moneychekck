@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { calculateTimeline } from "@/lib/calc/balance";
 import { splitSavingsAmount } from "@/lib/calc/monthly";
+import { stepMonth, summarizeMonth } from "@/lib/calc/monthly-overview";
 import { summarizePriorities } from "@/lib/calc/priorities";
 import { compareTimelines } from "@/lib/calc/compare";
 import { formatManwon, parseManwon, parseRange } from "@/lib/calc/money";
@@ -18,6 +19,32 @@ const grant: PayEvent = {
   date: null,
   certainty: "uncertain",
 };
+
+describe("월별 보기", () => {
+  it("앞 달 잔액을 이월하고 선택월의 입금, 지출, 저축·투자만 합산한다", () => {
+    const timeline = calculateTimeline({
+      ...paycheck, events: [...paycheck.events, grant],
+      monthlySalary: { label: "월급", amount: 960000, day: 10, startMonth: "2026-12", endMonth: "2026-12" },
+      monthlyExpenses: [{ id: "transport", label: "교통비", rates: [{ startMonth: "2026-12", amount: { min: 40000, max: 40000 } }] }],
+      monthlySavings: [{
+        id: "savings", label: "저축·투자", allocation: { savingsPercent: 80, savingsLabel: "비상금", investmentLabel: "장기 투자" },
+        rates: [{ startMonth: "2026-12", amount: { min: 50000, max: 100000 } }],
+      }],
+    });
+    expect(summarizeMonth(timeline, "2026-12")).toMatchObject({
+      income: { min: 960000n, max: 960000n }, spending: { min: 40000n, max: 40000n },
+      savings: { min: 50000n, max: 100000n }, closing: { best: 1010000, worst: 915000 }, count: 1,
+    });
+    expect(summarizeMonth(timeline, "2027-01")).toMatchObject({
+      count: 0, income: { min: 0n, max: 0n }, closing: { best: 1010000, worst: 915000 },
+    });
+  });
+
+  it("이전 달과 다음 달로 이동할 때 연도가 바뀐다", () => {
+    expect(stepMonth("2026-12", 1)).toBe("2027-01");
+    expect(stepMonth("2027-01", -1)).toBe("2026-12");
+  });
+});
 
 describe("잔액 타임라인", () => {
   it("월급을 지정한 달마다 확실한 입금으로 반영하고 짧은 달에는 말일에 넣는다", () => {

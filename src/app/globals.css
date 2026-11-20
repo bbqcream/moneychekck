@@ -76,27 +76,17 @@
   .balance-large > .amount-number { @apply text-3xl tracking-tight sm:text-4xl; line-height: 1.15; }
   .balance-large > .balance-unit { @apply text-sm; }
 
-  .dashboard-hero {
-    @apply grid items-stretch gap-4;
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .hero-copy {
-    @apply flex flex-col justify-center gap-5 rounded-3xl border border-line bg-paper p-6 sm:p-9;
-  }
-  .hero-copy p, .page-heading p { @apply max-w-xl leading-relaxed text-muted; }
+  .page-heading p { @apply mt-2.5 max-w-xl leading-relaxed text-muted; }
   .summary-card {
     @apply flex min-w-0 flex-col items-start justify-center gap-2 rounded-2xl bg-night p-5 text-night-muted sm:p-6;
   }
   .summary-card > p:first-child { @apply text-sm font-semibold; }
   .summary-card > .balance-text { @apply text-mint; }
   .summary-card > .balance-negative { @apply text-warn-soft; }
-  .dashboard-summary { @apply min-h-37 rounded-3xl sm:min-h-48 sm:p-8; }
   .summary-card .summary-placeholder { @apply text-4xl leading-none text-mint; }
   .summary-caption { @apply mt-1 text-sm leading-snug text-night-muted; overflow-wrap: anywhere; }
-  .summary-link { @apply decoration-night-muted underline-offset-4 hover:underline focus-visible:outline-mint; }
   .plans-section { @apply mt-8 sm:mt-11; }
   .section-header { @apply mb-3 flex min-h-11 items-center justify-between gap-3 sm:mb-4; }
-  .title-with-count { @apply flex flex-wrap items-center gap-2; }
   .plans-grid { @apply grid gap-3 sm:grid-cols-2; }
   .plan-card {
     @apply rounded-2xl border border-line bg-paper transition-colors hover:border-brand;
@@ -122,7 +112,6 @@
 
   .back-link { @apply mb-2 inline-flex min-h-11 items-center text-sm font-semibold text-brand hover:underline; }
   .page-heading { @apply mb-5 flex flex-wrap items-start justify-between gap-3 sm:mb-7; }
-  .page-heading p { @apply mt-2.5; }
   .editor-grid { @apply grid items-start gap-6; grid-template-columns: minmax(0, 1fr); }
   .editor-sidebar { @apply grid min-w-0 gap-3; }
   .editor-tools { @apply grid grid-cols-2 gap-2 p-3; }
@@ -219,7 +208,6 @@
 }
 
 @media (min-width: 48rem) {
-  .dashboard-hero { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); }
   .editor-grid { grid-template-columns: minmax(0, 1fr) minmax(14.5rem, 19rem); }
   .editor-sidebar { @apply sticky top-5 col-start-2 row-start-1; }
   .timeline { @apply col-start-1 row-start-1; }

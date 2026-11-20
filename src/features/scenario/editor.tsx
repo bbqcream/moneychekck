@@ -12,6 +12,7 @@ import { CurrentBalanceCard } from "./current-balance-card";
 import { EventDialog } from "./event-dialog";
 import { ItemDialog } from "./item-dialog";
 import { MonthlyRules } from "./monthly-rules";
+import { MonthlySalaryCard } from "./monthly-salary-card";
 import { NameDialog } from "./name-dialog";
 import { PrioritySummary } from "./priority-summary";
 import { SavingsAdviceDialog } from "./savings-advice-dialog";
@@ -98,6 +99,7 @@ export function Editor({ scenario }: { scenario: Scenario }) {
             <button type="button" className="btn btn-secondary" disabled={!groups.length} onClick={() => setDialog({ type: "memo" })}>아이폰 메모 내보내기</button>
             <button type="button" className="btn btn-quiet danger-text" onClick={() => setDialog({ type: "delete-plan" })}>시나리오 삭제</button>
           </div>
+          <MonthlySalaryCard scenario={scenario} collapsible />
           <MonthlyRules scenario={scenario} kind="expense" collapsible />
           <MonthlyRules scenario={scenario} kind="saving" collapsible />
         </aside>
