@@ -13,7 +13,8 @@ const errorMessages: Record<string, string> = {
   not_configured: "AI 연결을 사용하려면 서버에서 OpenAI API 키와 허용 계정을 설정해야 해요.",
   auth_required: "다시 로그인한 뒤 AI 제안을 요청해 주세요.",
   forbidden: "AI 사용이 설정된 계정으로 로그인해 주세요.",
-  rate_limited: "AI 요청 한도에 도달했어요. 잠시 뒤 사용량을 확인해 주세요.",
+  credits_required: "OpenAI API 크레딧을 사용할 수 없어요. API 계정의 결제와 사용 한도를 확인해 주세요.",
+  rate_limited: "잠시 동안 AI 요청이 많았어요. 잠시 후 다시 시도해 주세요.",
   invalid_advice: "계산한 한도 안에서 AI가 제안을 만들지 못했어요. 다시 시도해 주세요.",
 };
 

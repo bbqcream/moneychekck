@@ -49,6 +49,16 @@ function responseText(value: unknown): string | undefined {
   }
 }
 
+async function limitFailure(response: Response) {
+  const payload: unknown = await response.json().catch(() => undefined);
+  const error = isRecord(payload) ? payload.error : undefined;
+  if (isRecord(error) &&
+    (error.code === "credit_balance_exhausted" || error.code === "insufficient_quota" || error.type === "insufficient_quota")) {
+    return failure(429, "credits_required");
+  }
+  return failure(429, "rate_limited");
+}
+
 export function createSavingsAdviceHandler(config: Config, fetcher = fetch) {
   return async (request: Request): Promise<Response> => {
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders });
@@ -96,7 +106,7 @@ export function createSavingsAdviceHandler(config: Config, fetcher = fetch) {
           text: { format: { type: "json_schema", name: "savings_advice", strict: true, schema: adviceSchema } },
         }),
       });
-      if (upstream.status === 429) return failure(429, "rate_limited");
+      if (upstream.status === 429) return limitFailure(upstream);
       if (!upstream.ok) return failure(502, "unavailable");
       const text = responseText(await upstream.json());
       if (!text) return failure(502, "invalid_advice");

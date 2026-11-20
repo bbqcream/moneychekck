@@ -82,6 +82,18 @@ describe("AI 저축 함수", () => {
     expect(fetcher).toHaveBeenCalledTimes(1);
   });
 
+  it.each([
+    ["credit_balance_exhausted", "insufficient_quota", "credits_required"],
+    ["rate_limit_exceeded", "requests", "rate_limited"],
+  ])("OpenAI 응답 %s를 %s 유형에서 구분한다", async (code, type, expected) => {
+    const fetcher = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json({ id: config.ownerId }))
+      .mockResolvedValueOnce(Response.json({ error: { code, type } }, { status: 429 }));
+    const response = await createSavingsAdviceHandler(config, fetcher)(request("Bearer test-token"));
+    expect(response.status).toBe(429);
+    expect(await response.json()).toEqual({ code: expected });
+  });
+
   it.each([20000, 100000])("OpenAI에 합계만 전달하고 한도를 벗어난 제안은 표시하지 않는다 (%i)", async (savingsWon) => {
     const advice = { savingsWon, investmentWon: 5000, reason: "예비비를 우선 고려해요.", nextStep: "지출을 다시 확인해요." };
     const fetcher = vi.fn<typeof fetch>()
