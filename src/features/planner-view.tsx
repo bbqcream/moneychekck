@@ -5,6 +5,7 @@ import { AccountStatus, type SignedInAccount } from "@/features/auth/account-sta
 import { CompareView } from "@/features/compare/compare-view";
 import { Dashboard } from "@/features/scenario/dashboard";
 import { Editor } from "@/features/scenario/editor";
+import { isMonth } from "@/lib/calc/monthly";
 import { usePlans } from "@/store/provider";
 
 function subscribe(listener: () => void) {
@@ -41,8 +42,11 @@ export function PlannerView({ account }: { account?: SignedInAccount }) {
       window.removeEventListener("online", refreshSync);
     };
   }, [online, refreshSync]);
-  const compare = route === "/compare";
-  const scenarioId = route.match(/^\/scenarios\/([^/]+)$/)?.[1];
+  const [path, query] = route.split("?", 2);
+  const requestedMonth = new URLSearchParams(query).get("month");
+  const routeMonth = requestedMonth && isMonth(requestedMonth) ? requestedMonth : undefined;
+  const compare = path === "/compare";
+  const scenarioId = path.match(/^\/scenarios\/([^/]+)$/)?.[1];
   const scenario = scenarios.find(({ id }) => scenarioId === id);
 
   return (
@@ -70,14 +74,17 @@ export function PlannerView({ account }: { account?: SignedInAccount }) {
         )}
         {!ready ? !account && <p className="muted loading" role="status">저장된 시나리오를 불러오고 있어요.</p>
           : compare ? <CompareView scenarios={scenarios} />
-          : scenario ? <Editor key={scenario.id} scenario={scenario} month={month} />
+          : scenario ? <Editor key={scenario.id + (routeMonth ?? "")} scenario={scenario} month={month} focusMonth={routeMonth} />
           : scenarioId ? (
             <div className="empty-panel">
               <h1>시나리오를 찾을 수 없어요</h1>
               <p>이 브라우저에 저장된 다른 시나리오를 목록에서 열 수 있어요.</p>
               <a href="#/" className="btn btn-primary">시나리오 목록</a>
             </div>
-          ) : <Dashboard month={month} setMonth={setMonth} />}
+          ) : <Dashboard month={routeMonth ?? month} setMonth={(value) => {
+            setMonth(value);
+            if (routeMonth) window.location.replace("#/?month=" + value);
+          }} />}
       </main>
     </>
   );

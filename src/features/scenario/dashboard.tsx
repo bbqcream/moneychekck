@@ -35,7 +35,8 @@ export function Dashboard({ month, setMonth }: { month: string; setMonth: (month
   const close = () => setDialog(null);
 
   function editMonthlyPlan() {
-    window.location.assign(planLink(base?.id ?? createPlan("월별 기본 계획", { monthScope: "base" })));
+    const id = base?.id ?? createPlan("월별 기본 계획", { monthScope: "base" });
+    window.location.assign(planLink(id) + "?month=" + month);
   }
 
   function addImported(imported: PlanData) {
