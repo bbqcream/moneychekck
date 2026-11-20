@@ -1,6 +1,7 @@
-import type { Item, MonthlyRule, MonthlySalary, MonthlySaving, PayEvent, RangeAmount, Scenario } from "@/types/scenario";
+import type { CommuteFare, Item, MonthlyRule, MonthlySalary, MonthlySaving, PayEvent, RangeAmount, Scenario } from "@/types/scenario";
 import { applyTax } from "./tax";
-import { calculateHourlySalary } from "./work-pay";
+import { calculateHourlySalary, countMonthlyWorkdays } from "./work-pay";
+import { checkedWon } from "./money";
 
 export function isMonth(value: string): boolean {
   return /^\d{4}-(0[1-9]|1[0-2])$/.test(value) && !value.startsWith("0000");
@@ -64,6 +65,24 @@ function rateForMonth<T extends { startMonth: string }>(rates: T[], month: strin
     .findLast(({ startMonth }) => startMonth <= month);
 }
 
+export function isCommuteFare({ oneWayWon, extraWon, days }: CommuteFare) {
+  return Number.isSafeInteger(oneWayWon) && oneWayWon >= 0 && Number.isSafeInteger(extraWon) && extraWon >= 0 &&
+    (days === undefined || (Number.isInteger(days) && days >= 0 && days <= 31)) &&
+    2n * BigInt(days ?? 31) * BigInt(oneWayWon) + BigInt(extraWon) <= BigInt(Number.MAX_SAFE_INTEGER);
+}
+
+export function monthlyExpenseForMonth(rule: MonthlyRule, month: string): { amount: RangeAmount; note?: string } | undefined {
+  const rate = rateForMonth(rule.rates, month);
+  if (!rate || "amount" in rate) return rate;
+  const { commute } = rate;
+  const calendar = commute.days === undefined ? countMonthlyWorkdays(month) : null;
+  const days = commute.days ?? calendar?.days ?? 0;
+  const won = checkedWon(BigInt(days) * 2n * BigInt(commute.oneWayWon) + BigInt(commute.extraWon));
+  const note = `출근 ${days}일 × 왕복 ${(BigInt(commute.oneWayWon) * 2n).toLocaleString("ko-KR")}원 + 추가 ${commute.extraWon.toLocaleString("ko-KR")}원` +
+    (calendar?.missingYears.length ? " · 공휴일 자료가 없어 주말만 제외" : "");
+  return { amount: { min: won, max: won }, note };
+}
+
 export function monthlyItems(scenario: Scenario, events: PayEvent[], salaryEvents: PayEvent[]) {
   const byMonth = new Map<string, PayEvent>();
   for (const event of events) {
@@ -79,7 +98,7 @@ export function monthlyItems(scenario: Scenario, events: PayEvent[], salaryEvent
   const byEvent = new Map<string, MonthlyItem[]>();
   const salaryByMonth = new Map(salaryEvents.map((salary) => [salary.date?.slice(0, 7), salary]));
   for (const [month, event] of byMonth) {
-    const add = (target: PayEvent, rule: MonthlyRule | MonthlySaving, kind: Item["kind"], label: string, amount: RangeAmount) => {
+    const add = (target: PayEvent, rule: MonthlyRule | MonthlySaving, kind: Item["kind"], label: string, amount: RangeAmount, note?: string) => {
       if (amount.max === 0) return;
       const items = byEvent.get(target.id) ?? [];
       const item: Item = {
@@ -88,6 +107,7 @@ export function monthlyItems(scenario: Scenario, events: PayEvent[], salaryEvent
         kind,
         priority: rule.priority,
         amount,
+        note,
         afterEventId: target.id,
         order: items.length,
       };
@@ -95,8 +115,8 @@ export function monthlyItems(scenario: Scenario, events: PayEvent[], salaryEvent
       byEvent.set(target.id, items);
     };
     for (const expense of scenario.monthlyExpenses ?? []) {
-      const rate = rateForMonth(expense.rates, month);
-      if (rate) add(event, expense, "expense", expense.label, rate.amount);
+      const projected = monthlyExpenseForMonth(expense, month);
+      if (projected) add(event, expense, "expense", expense.label, projected.amount, projected.note);
     }
     for (const saving of scenario.monthlySavings ?? []) {
       const rate = rateForMonth(saving.rates, month);

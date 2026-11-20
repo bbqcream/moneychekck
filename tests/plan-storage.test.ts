@@ -44,6 +44,16 @@ function testCloud(initial: Snapshot) {
 describe("계획 백업", () => {
   const currentBalance = { amount: 123456, recordedAt: "2026-11-20T00:00:00.000Z" };
 
+  it("교통비 계산 설정을 기존 고정 금액과 함께 백업한다", () => {
+    const scenario = { ...paycheck, monthlyExpenses: [{ id: "commute", label: "교통비", rates: [
+      { startMonth: "2026-11", amount: { min: 40000, max: 40000 } },
+      { startMonth: "2027-01", commute: { oneWayWon: 1500, extraWon: 15000 } },
+    ] }] };
+    expect(parsePlanDocument(serializePlanData({ scenarios: [scenario] })).scenarios).toEqual([scenario]);
+    const invalid = { ...scenario, monthlyExpenses: [{ ...scenario.monthlyExpenses[0], rates: [{ startMonth: "2027-01", commute: { oneWayWon: -1500, extraWon: 15000 } }] }] };
+    expect(() => parsePlanDocument(serializePlanData({ scenarios: [invalid] }))).toThrow();
+  });
+
   it("고정저축의 고정액과 월급 비율을 함께 저장하고 잘못된 비율을 거절한다", () => {
     const rule = {
       id: "savings", label: "저축", allocation: { savingsPercent: 100, savingsLabel: "비상금", investmentLabel: "투자" },

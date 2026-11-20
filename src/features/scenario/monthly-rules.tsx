@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ConfirmAction } from "@/components/confirm-action";
 import { formatRange } from "@/lib/calc/money";
-import { splitSavingsAmount } from "@/lib/calc/monthly";
+import { monthlyExpenseForMonth, splitSavingsAmount } from "@/lib/calc/monthly";
 import { usePlans } from "@/store/provider";
 import type { MonthlyRule, MonthlyRuleKind, MonthlySaving, RangeAmount, SavingsAllocation, Scenario } from "@/types/scenario";
 import { monthlyRuleLabels, priorityLabels } from "./labels";
@@ -15,9 +15,10 @@ function saveToList<T extends { id: string }>(list: T[] = [], rule: T): T[] {
     : [...list, rule];
 }
 
-export function MonthlyRules({ scenario, kind, collapsible = false }: {
+export function MonthlyRules({ scenario, kind, month, collapsible = false }: {
   scenario?: Scenario;
   kind: MonthlyRuleKind;
+  month?: string;
   collapsible?: boolean;
 }) {
   const updatePlan = usePlans((state) => state.updatePlan);
@@ -58,6 +59,7 @@ export function MonthlyRules({ scenario, kind, collapsible = false }: {
         <ul className="mb-3 space-y-2">
           {rules.map((rule) => {
             const allocation = "allocation" in rule ? rule.allocation : undefined;
+            const projection = month && !("allocation" in rule) ? monthlyExpenseForMonth(rule, month) : undefined;
             return (
               <li className="rounded-xl bg-canvas p-3" key={rule.id}>
                 <div className="flex flex-wrap items-center gap-2">
@@ -67,11 +69,16 @@ export function MonthlyRules({ scenario, kind, collapsible = false }: {
                 {[...rule.rates].sort((a, b) => a.startMonth.localeCompare(b.startMonth)).map((rate) => (
                   <div key={rate.startMonth} className="my-1">
                     {"salaryPercent" in rate ? <p className="meta">{rate.startMonth}부터 세후 고정 월급의 {rate.salaryPercent}%</p> :
-                      <p className="meta">{rate.startMonth}부터 월 {formatRange(rate.amount)}만원</p>}
+                      "commute" in rate ? <p className="meta">{rate.startMonth}부터 교통비 자동 계산</p> :
+                        <p className="meta">{rate.startMonth}부터 월 {formatRange(rate.amount)}만원</p>}
                     {allocation && ("amount" in rate ? <AllocationAmounts amount={rate.amount} allocation={allocation} /> :
                       <p className="meta">저축 {allocation.savingsPercent}% · 투자 {100 - allocation.savingsPercent}%</p>)}
                   </div>
                 ))}
+                {projection?.note && <div className="my-2">
+                  <p className="text-sm font-semibold">{Number(month?.slice(5))}월 예상 교통비 {formatRange(projection.amount)}만원</p>
+                  <p className="meta">{projection.note}</p>
+                </div>}
                 <div className="button-row">
                   <button type="button" className="btn btn-quiet" aria-label={rule.label + (saving ? " 고정저축 수정" : " 고정지출 수정")} onClick={() => setDialog({ type: "edit", rule })}>수정</button>
                   <button type="button" className="btn btn-quiet danger-text" aria-label={rule.label + (saving ? " 고정저축 삭제" : " 고정지출 삭제")} onClick={() => setDialog({ type: "delete", rule })}>삭제</button>
@@ -99,7 +106,7 @@ export function MonthlyRules({ scenario, kind, collapsible = false }: {
         </section>
       )}
       {dialog?.type === "edit" && (
-        <MonthlyRuleDialog kind={kind} rule={dialog.rule} onClose={close} onSave={save} />
+        <MonthlyRuleDialog kind={kind} rule={dialog.rule} month={month} onClose={close} onSave={save} />
       )}
       {dialog?.type === "delete" && (
         <ConfirmAction title={title + "을 삭제할까요?"} description={"‘" + dialog.rule.label + "’를 빼고 잔액을 다시 계산해요."}

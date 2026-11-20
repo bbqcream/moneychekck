@@ -40,6 +40,14 @@ export function parseWorkHours(input: string): number | null {
   return hundredths !== null && hundredths <= 2400 ? hundredths : null;
 }
 
+export function countMonthlyWorkdays(month: string) {
+  const first = parseCalendarDate(month + "-01");
+  if (!first) return null;
+  const last = new Date(first);
+  last.setUTCMonth(last.getUTCMonth() + 1, 0);
+  return countWorkdays(first.toISOString().slice(0, 10), last.toISOString().slice(0, 10));
+}
+
 export function calculateWorkPay(days: number, hourHundredths: number, hourlyWon: Won): Won {
   return checkedWon((BigInt(days) * BigInt(hourHundredths) * BigInt(hourlyWon)) / 100n);
 }
@@ -59,13 +67,10 @@ export function calculateHourlySalary(hourly: HourlySalary, paidMonth: string) {
     const start = parseCalendarDate(paidMonth + "-01");
     if (!start) return null;
     if (hourly.schedule === "previous-month") start.setUTCMonth(start.getUTCMonth() - 1);
-    const from = start.toISOString().slice(0, 10);
-    const last = new Date(start);
-    last.setUTCMonth(last.getUTCMonth() + 1, 0);
-    const calendar = countWorkdays(from, last.toISOString().slice(0, 10));
+    workMonth = start.toISOString().slice(0, 7);
+    const calendar = countMonthlyWorkdays(workMonth);
     if (!calendar) return null;
     days = calendar.days;
-    workMonth = from.slice(0, 7);
     missingHolidays = calendar.missingYears.length > 0;
   }
 

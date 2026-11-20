@@ -67,6 +67,19 @@ describe("월별 보기", () => {
 });
 
 describe("잔액 타임라인", () => {
+  it("교통비는 지급일과 관계없이 해당 달의 출근일수로 한 번만 계산한다", () => {
+    const events = ["2026-11-10", "2026-12-10", "2027-01-10", "2027-01-25"].map((date, index) => ({ ...paycheck.events[0], id: `income-${index}`, date }));
+    const scenario = {
+      ...paycheck, events, items: [],
+      monthlyExpenses: [{ id: "commute", label: "교통비", rates: [
+        { startMonth: "2026-11", commute: { oneWayWon: 1500, extraWon: 15000, days: 16 } },
+        { startMonth: "2026-12", commute: { oneWayWon: 1500, extraWon: 15000 } },
+      ] }],
+    };
+    const { groups } = calculateTimeline(scenario);
+    expect(groups.map(({ items }) => items.map(({ amount }) => amount.min))).toEqual([[63000], [81000], [75000], []]);
+    expect(groups[2].items[0].item.note).toContain("20일");
+  });
   it("월급 비율 저축은 다른 입금과 무관하게 해당 달의 세후 고정 월급에서 차감한다", () => {
     const scenario = {
       ...paycheck, items: [], events: [{ ...paycheck.events[0], date: "2027-01-05" }, { ...grant, date: "2027-03-10" }],

@@ -79,7 +79,7 @@ export function Dashboard({ month, setMonth }: { month: string; setMonth: (month
         onMove={(item, eventId) => base ? moveToEvent(base.id, item.id, eventId) : "월별 기본 계획을 찾을 수 없어요."} />
       <section className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3" aria-label="고정 월급·지출·저축">
         <MonthlySalaryCard key={"salary-" + base?.id} scenario={base} month={month} />
-        <MonthlyRules key={"expense-" + base?.id} scenario={base} kind="expense" />
+        <MonthlyRules key={"expense-" + base?.id} scenario={base} kind="expense" month={month} />
         <MonthlyRules key={"saving-" + base?.id} scenario={base} kind="saving" />
       </section>
       <section aria-labelledby="plans-title" className="plans-section">

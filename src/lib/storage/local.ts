@@ -1,8 +1,8 @@
 import { calculateTimeline } from "@/lib/calc/balance";
-import { isMonth, isSalaryPeriod } from "@/lib/calc/monthly";
+import { isCommuteFare, isMonth, isSalaryPeriod } from "@/lib/calc/monthly";
 import { calculateHourlySalary, parseCalendarDate } from "@/lib/calc/work-pay";
 import type { CurrentBalance, PlanData } from "@/types/plan-data";
-import { isSpendingPriority, itemKinds, type Item, type MonthlyRate, type MonthlyRule, type MonthlySalary, type MonthlySaving, type MonthlySavingRate, type PayEvent, type RangeAmount, type Scenario } from "@/types/scenario";
+import { isSpendingPriority, itemKinds, type Item, type MonthlyExpenseRate, type MonthlyRate, type MonthlyRule, type MonthlySalary, type MonthlySaving, type MonthlySavingRate, type PayEvent, type RangeAmount, type Scenario } from "@/types/scenario";
 
 const storageKey = "payplan:v1";
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -38,7 +38,7 @@ function hasUniqueIds(values: { id: string }[]) {
 }
 
 function isMonthlyRate(value: unknown): value is MonthlyRate {
-  return isRecord(value) && value.salaryPercent === undefined && typeof value.startMonth === "string" && isMonth(value.startMonth) && isAmount(value.amount);
+  return isRecord(value) && value.salaryPercent === undefined && value.commute === undefined && typeof value.startMonth === "string" && isMonth(value.startMonth) && isAmount(value.amount);
 }
 
 function hasMonthlyRates<T extends { startMonth: string }>(value: unknown, isRate: (rate: unknown) => rate is T) {
@@ -49,11 +49,17 @@ function hasMonthlyRates<T extends { startMonth: string }>(value: unknown, isRat
 }
 
 function isMonthlyRule(value: unknown): value is MonthlyRule {
-  return hasMonthlyRates(value, isMonthlyRate);
+  return hasMonthlyRates(value, (rate): rate is MonthlyExpenseRate => {
+    if (isMonthlyRate(rate)) return true;
+    if (!isRecord(rate) || typeof rate.startMonth !== "string" || !isMonth(rate.startMonth) || rate.amount !== undefined || rate.salaryPercent !== undefined) return false;
+    const fare = rate.commute;
+    return isRecord(fare) && typeof fare.oneWayWon === "number" && typeof fare.extraWon === "number" &&
+      (fare.days === undefined || typeof fare.days === "number") && isCommuteFare({ oneWayWon: fare.oneWayWon, extraWon: fare.extraWon, days: fare.days });
+  });
 }
 
 function isMonthlySavingRate(value: unknown): value is MonthlySavingRate {
-  return isMonthlyRate(value) || (isRecord(value) && value.amount === undefined &&
+  return isMonthlyRate(value) || (isRecord(value) && value.amount === undefined && value.commute === undefined &&
     typeof value.startMonth === "string" && isMonth(value.startMonth) &&
     isUnsignedInteger(value.salaryPercent) && value.salaryPercent <= 100);
 }

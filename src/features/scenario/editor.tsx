@@ -110,7 +110,7 @@ export function Editor({ scenario, month, focusMonth }: { scenario: Scenario; mo
             <button type="button" className="btn btn-quiet danger-text" onClick={() => setDialog({ type: "delete-plan" })}>시나리오 삭제</button>
           </div>
           <MonthlySalaryCard scenario={scenario} month={displayedMonth} collapsible />
-          <MonthlyRules scenario={scenario} kind="expense" collapsible />
+          <MonthlyRules scenario={scenario} kind="expense" month={displayedMonth} collapsible />
           <MonthlyRules scenario={scenario} kind="saving" collapsible />
         </aside>
         <section className="timeline" aria-labelledby="timeline-heading">

@@ -71,6 +71,7 @@ export function MonthlySpending({ groups, onEdit, onMove }: {
                         <span className={`badge spending-kind-badge ${kindTone[item.kind]}`}>{kindLabels[item.kind]}</span>
                         {item.priority && <span className="badge spending-priority-badge">{priorityLabels[item.priority]}</span>}
                       </div>
+                      {monthlyRuleId && item.note && <p className="meta mt-1">{item.note}</p>}
                       {canMove && !monthlyRuleId && <button type="button" className="btn btn-quiet cursor-grab! touch-none select-none active:cursor-grabbing!"
                         aria-label={`${item.label} 다른 입금으로 이동`} {...drag.handle(item, setMoving)}>↔ 이동</button>}
                     </div>
