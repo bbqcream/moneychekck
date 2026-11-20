@@ -124,7 +124,7 @@ export function Editor({ scenario, month, focusMonth }: { scenario: Scenario; mo
             <button type="button" className="btn btn-secondary" disabled={!groups.length} onClick={() => setDialog({ type: "memo" })}>아이폰 메모 내보내기</button>
             <button type="button" className="btn btn-quiet danger-text" onClick={() => setDialog({ type: "delete-plan" })}>시나리오 삭제</button>
           </div>
-          <MonthlySalaryCard scenario={scenario} collapsible />
+          <MonthlySalaryCard scenario={scenario} month={displayedMonth} collapsible />
           <MonthlyRules scenario={scenario} kind="expense" collapsible />
           <MonthlyRules scenario={scenario} kind="saving" collapsible />
         </aside>

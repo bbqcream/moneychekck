@@ -6,28 +6,30 @@ import { usePlans } from "@/store/provider";
 import type { Scenario } from "@/types/scenario";
 import { MonthlySalaryDialog } from "./monthly-salary-dialog";
 
-export function MonthlySalaryCard({ scenario, collapsible = false }: { scenario?: Scenario; collapsible?: boolean }) {
+export function MonthlySalaryCard({ scenario, month, collapsible = false }: { scenario?: Scenario; month?: string; collapsible?: boolean }) {
   const updatePlan = usePlans((state) => state.updatePlan);
   const [dialog, setDialog] = useState<"edit" | "delete" | null>(null);
   const salary = scenario?.monthlySalary;
   const hourly = salary?.hourly;
   const calendarBased = hourly?.schedule === "current-month" || hourly?.schedule === "previous-month";
-  const amountDescription = salary && (calendarBased ? "시급으로 계산" : `월 ${formatManwon(salary.amount)}만원`);
+  const payout = month ? monthlySalaryEvents(salary).find(({ date }) => date?.startsWith(month)) : undefined;
+  const amountDescription = payout ? `${formatManwon(payout.amount.min)}만원` :
+    salary && !month ? calendarBased ? "시급으로 계산" : `월 ${formatManwon(salary.amount)}만원` : undefined;
   const close = () => setDialog(null);
 
   const content = scenario ? (
     <>
-      {salary ? (
+      {salary && (!month || payout) ? (
         <div className="mb-3 rounded-xl bg-canvas p-3">
           <h3>{salary.label}</h3>
-          <p className="meta">{amountDescription} · 매월 {salary.day}일</p>
+          <p className="meta">{amountDescription} · {payout?.date ?? `매월 ${salary.day}일`}</p>
           {hourly && <p className="meta">
             시급 {hourly.hourlyWon.toLocaleString("ko-KR")}원 · 하루 {hourly.hourHundredths / 100}시간 · {hourly.schedule === "manual"
               ? `월 ${hourly.days}일` : hourly.schedule === "previous-month" ? "전월 평일" : "지급월 평일"}
           </p>}
           <p className="meta">지급 기간 {salary.startMonth} ~ {salary.endMonth}</p>
         </div>
-      ) : <p className="meta mb-3">매달 들어올 월급을 시나리오 잔액에 반영해요.</p>}
+      ) : <p className="meta mb-3">{salary ? "선택한 달에 예정된 고정 월급이 없어요." : "매달 들어올 월급을 시나리오 잔액에 반영해요."}</p>}
       <div className="button-row">
         <button type="button" className="btn btn-secondary" onClick={() => setDialog("edit")}>{salary ? "고정 월급 수정" : "고정 월급 추가"}</button>
         {salary && <button type="button" className="btn btn-quiet danger-text" onClick={() => setDialog("delete")}>고정 월급 삭제</button>}
