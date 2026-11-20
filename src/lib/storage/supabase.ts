@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { decodePlans, planDocument } from "./local";
+import { decodePlanData, decodePlanDocument, planDocument } from "./local";
 import type { CloudConnection, Draft, Snapshot } from "./plan-sync";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -36,12 +36,12 @@ export function getCloudClient() {
   return client ??= createClient<Database>(url, key);
 }
 
-const empty: Snapshot = { revision: 0, mutationId: null, plans: [] };
+const empty: Snapshot = { revision: 0, mutationId: null, data: { scenarios: [] } };
 
 function readDraft(key: string): Draft | undefined {
   const raw = sessionStorage.getItem(key);
   if (!raw) return undefined;
-  const parsed = JSON.parse(raw) as Partial<Draft> | null;
+  const parsed = JSON.parse(raw) as (Partial<Draft> & { plans?: unknown }) | null;
   const isId = (value: unknown): value is string | null => value === null || typeof value === "string";
   if (!parsed || typeof parsed.revision !== "number" || !Number.isSafeInteger(parsed.revision) ||
     parsed.revision < 0 || !isId(parsed.mutationId) || !isId(parsed.pendingId) ||
@@ -51,7 +51,7 @@ function readDraft(key: string): Draft | undefined {
     mutationId: parsed.mutationId,
     pendingId: parsed.pendingId,
     attemptedId: parsed.attemptedId,
-    plans: decodePlans({ version: 1, scenarios: parsed.plans }),
+    data: decodePlanData(parsed.data ?? { scenarios: parsed.plans }),
   };
 }
 
@@ -66,11 +66,11 @@ export function accountConnection(userId: string): CloudConnection {
           .select("revision, mutation_id, document").eq("user_id", userId).maybeSingle();
         if (error) throw error;
         if (!data) return empty;
-        return { revision: data.revision, mutationId: data.mutation_id, plans: decodePlans(data.document) };
+        return { revision: data.revision, mutationId: data.mutation_id, data: decodePlanDocument(data.document) };
       },
-      write: async (revision, mutationId, plans) => {
+      write: async (revision, mutationId, planData) => {
         const table = getCloudClient().from("payplan_documents");
-        const data = { revision: revision + 1, mutation_id: mutationId, document: planDocument(plans) };
+        const data = { revision: revision + 1, mutation_id: mutationId, document: planDocument(planData) };
         if (!revision) {
           const { error } = await table.insert({ ...data, user_id: userId });
           if (error?.code === "23505") return false;

@@ -7,12 +7,13 @@ import { MemoDialog } from "@/features/export/memo-dialog";
 import { formatMemo } from "@/features/export/memo";
 import { calculateTimeline, itemsForEvent } from "@/lib/calc/balance";
 import { usePlans } from "@/store/provider";
-import type { Item, MonthlyExpense, PayEvent, RangeAmount, Scenario } from "@/types/scenario";
+import type { Item, PayEvent, RangeAmount, Scenario } from "@/types/scenario";
+import { CurrentBalanceCard } from "./current-balance-card";
 import { EventDialog } from "./event-dialog";
 import { ItemDialog } from "./item-dialog";
-import { MonthlyExpenseDialog } from "./monthly-expense-dialog";
 import { MonthlyExpenses } from "./monthly-expenses";
 import { NameDialog } from "./name-dialog";
+import { PrioritySummary } from "./priority-summary";
 import { TaxDialog, taxLabel } from "./tax-dialog";
 import { TimelineView } from "./timeline-view";
 import { WorkPayDialog } from "./work-pay-dialog";
@@ -22,8 +23,6 @@ type EditorDialog =
   | { type: "item"; event: PayEvent; item?: Item }
   | { type: "delete-event"; event: PayEvent }
   | { type: "delete-item"; item: Item }
-  | { type: "monthly"; expense?: MonthlyExpense }
-  | { type: "delete-monthly"; expense: MonthlyExpense }
   | { type: "name" | "tax" | "work" | "memo" | "delete-plan" };
 
 export function Editor({ scenario }: { scenario: Scenario }) {
@@ -88,6 +87,8 @@ export function Editor({ scenario }: { scenario: Scenario }) {
             {groups.length ? <BalanceText balance={finalBalance} large /> : <strong className="summary-placeholder">—</strong>}
             <p className="summary-caption">{groups.length ? "전체 입금 기준 · 좋은 경우 ~ 나쁜 경우" : "입금을 추가하면 잔액을 볼 수 있어요."}</p>
           </div>
+          <CurrentBalanceCard />
+          <PrioritySummary timeline={timeline} />
           <div className="panel editor-tools">
             <span className="meta">세금 · {taxLabel(scenario)}</span>
             <button type="button" className="btn btn-secondary" onClick={() => setDialog({ type: "tax" })}>세금 설정</button>
@@ -95,9 +96,7 @@ export function Editor({ scenario }: { scenario: Scenario }) {
             <button type="button" className="btn btn-secondary" disabled={!groups.length} onClick={() => setDialog({ type: "memo" })}>아이폰 메모 내보내기</button>
             <button type="button" className="btn btn-quiet danger-text" onClick={() => setDialog({ type: "delete-plan" })}>시나리오 삭제</button>
           </div>
-          <MonthlyExpenses expenses={scenario.monthlyExpenses ?? []}
-            onEdit={(expense) => setDialog({ type: "monthly", expense })}
-            onDelete={(expense) => setDialog({ type: "delete-monthly", expense })} />
+          <MonthlyExpenses scenario={scenario} collapsible />
         </aside>
         <section className="timeline" aria-labelledby="timeline-heading">
           <div className="section-header">
@@ -124,20 +123,6 @@ export function Editor({ scenario }: { scenario: Scenario }) {
       {dialog?.type === "name" && <NameDialog title="시나리오 이름 수정" name={scenario.name} onSave={(name) => update((plan) => ({ ...plan, name }))} onClose={close} />}
       {dialog?.type === "event" && <EventDialog event={dialog.event} draftAmount={dialog.draftAmount} onSave={saveEvent} onClose={close} />}
       {dialog?.type === "item" && <ItemDialog item={dialog.item} eventLabel={dialog.event.label} onSave={(item) => saveItem(dialog.event, item)} onClose={close} />}
-      {dialog?.type === "monthly" && <MonthlyExpenseDialog expense={dialog.expense} onClose={close} onSave={(expense) => update((plan) => {
-        const expenses = plan.monthlyExpenses ?? [];
-        const monthlyExpenses = expenses.some(({ id }) => id === expense.id)
-          ? expenses.map((current) => current.id === expense.id ? expense : current)
-          : [...expenses, expense];
-        return { ...plan, monthlyExpenses };
-      })} />}
-      {dialog?.type === "delete-monthly" && (
-        <ConfirmAction title="월 고정지출을 삭제할까요?" description={"‘" + dialog.expense.label + "’를 빼고 잔액을 다시 계산해요."}
-          actionLabel="고정지출 삭제" onClose={close}
-          onConfirm={() => update((plan) => ({
-            ...plan, monthlyExpenses: plan.monthlyExpenses?.filter(({ id }) => id !== dialog.expense.id),
-          })) ?? undefined} />
-      )}
       {dialog?.type === "work" && <WorkPayDialog onUse={(won) => setDialog({ type: "event", draftAmount: { min: won, max: won } })} onClose={close} />}
       {dialog?.type === "tax" && <TaxDialog scenario={scenario} onSave={(taxMode, customTaxBasisPoints) => update((plan) => ({ ...plan, taxMode, customTaxBasisPoints }))} onClose={close} />}
       {dialog?.type === "memo" && <MemoDialog text={formatMemo(timeline)} onClose={close} />}

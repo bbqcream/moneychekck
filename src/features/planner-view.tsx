@@ -22,7 +22,7 @@ function routeSnapshot() {
 
 export function PlannerView({ account }: { account?: SignedInAccount }) {
   const route = useSyncExternalStore(subscribe, routeSnapshot, () => "/");
-  const scenarios = usePlans((state) => state.scenarios);
+  const scenarios = usePlans((state) => state.data.scenarios);
   const ready = usePlans((state) => state.ready);
   const storageIssue = usePlans((state) => state.storageIssue);
   const hydrate = usePlans((state) => state.hydrate);
@@ -74,7 +74,7 @@ export function PlannerView({ account }: { account?: SignedInAccount }) {
               <p>이 브라우저에 저장된 다른 시나리오를 목록에서 열 수 있어요.</p>
               <a href="#/" className="btn btn-primary">시나리오 목록</a>
             </div>
-          ) : <Dashboard scenarios={scenarios} />}
+          ) : <Dashboard />}
       </main>
     </>
   );

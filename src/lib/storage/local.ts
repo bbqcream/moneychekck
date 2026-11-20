@@ -1,7 +1,8 @@
 import { calculateTimeline } from "@/lib/calc/balance";
 import { isMonth } from "@/lib/calc/monthly";
 import { parseCalendarDate } from "@/lib/calc/work-pay";
-import { itemKinds, type Item, type MonthlyExpense, type MonthlyRate, type PayEvent, type RangeAmount, type Scenario } from "@/types/scenario";
+import type { CurrentBalance, PlanData } from "@/types/plan-data";
+import { isSpendingPriority, itemKinds, type Item, type MonthlyExpense, type MonthlyRate, type PayEvent, type RangeAmount, type Scenario } from "@/types/scenario";
 
 const storageKey = "payplan:v1";
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -24,7 +25,8 @@ function isEvent(value: unknown): value is PayEvent {
 function isItem(value: unknown): value is Item {
   if (!isRecord(value) || !isText(value.id) || !isText(value.label) || !isAmount(value.amount) ||
     !itemKinds.some((kind) => kind === value.kind) || !isText(value.afterEventId) ||
-    !isUnsignedInteger(value.order) || (value.note !== undefined && typeof value.note !== "string")) return false;
+    !isUnsignedInteger(value.order) || (value.note !== undefined && typeof value.note !== "string") ||
+    (value.priority !== undefined && !isSpendingPriority(value.priority))) return false;
   const repeat = value.repetition;
   return repeat === undefined || (isRecord(repeat) && (repeat.unit === "daily" || repeat.unit === "monthly") &&
     isUnsignedInteger(repeat.count) && repeat.count > 0);
@@ -40,6 +42,7 @@ function isMonthlyRate(value: unknown): value is MonthlyRate {
 
 function isMonthlyExpense(value: unknown): value is MonthlyExpense {
   return isRecord(value) && isText(value.id) && isText(value.label) && Array.isArray(value.rates) &&
+    (value.priority === undefined || isSpendingPriority(value.priority)) &&
     value.rates.length > 0 && value.rates.every(isMonthlyRate) &&
     new Set(value.rates.map(({ startMonth }) => startMonth)).size === value.rates.length;
 }
@@ -62,33 +65,41 @@ function isScenario(value: unknown): value is Scenario {
     value.items.every((item) => eventIds.has(item.afterEventId));
 }
 
-export function planDocument(scenarios: Scenario[]) {
-  return { version: 1, scenarios };
+function isCurrentBalance(value: unknown): value is CurrentBalance {
+  return isRecord(value) && isUnsignedInteger(value.amount) &&
+    typeof value.recordedAt === "string" && Number.isFinite(Date.parse(value.recordedAt));
 }
 
-export const serializePlans = (scenarios: Scenario[]) => JSON.stringify(planDocument(scenarios), null, 2);
+export const planDocument = (data: PlanData) => ({ version: 1, ...data });
+export const serializePlanData = (data: PlanData) => JSON.stringify(planDocument(data), null, 2);
 
 export function validateBalances(scenario: Scenario) {
   calculateTimeline(scenario);
   calculateTimeline(scenario, "confirmed");
 }
 
-export function decodePlans(value: unknown): Scenario[] {
-  if (!isRecord(value) || value.version !== 1 || !Array.isArray(value.scenarios) ||
-    !value.scenarios.every(isScenario) || !hasUniqueIds(value.scenarios)) throw new Error("Invalid plan data");
+export function decodePlanData(value: unknown): PlanData {
+  if (!isRecord(value) || !Array.isArray(value.scenarios) ||
+    !value.scenarios.every(isScenario) || !hasUniqueIds(value.scenarios) ||
+    (value.currentBalance !== undefined && !isCurrentBalance(value.currentBalance))) throw new Error("Invalid plan data");
   value.scenarios.forEach(validateBalances);
-  return value.scenarios;
+  return { scenarios: value.scenarios, currentBalance: value.currentBalance };
 }
 
-export const parsePlans = (text: string): Scenario[] => decodePlans(JSON.parse(text));
+export function decodePlanDocument(value: unknown): PlanData {
+  if (!isRecord(value) || value.version !== 1) throw new Error("Invalid plan version");
+  return decodePlanData(value);
+}
 
-export function loadPlans(): Scenario[] {
+export const parsePlanDocument = (text: string): PlanData => decodePlanDocument(JSON.parse(text));
+
+export function loadPlanData(): PlanData {
   const stored = localStorage.getItem(storageKey);
-  return stored === null ? [] : parsePlans(stored);
+  return stored === null ? { scenarios: [] } : parsePlanDocument(stored);
 }
 
-export function savePlans(scenarios: Scenario[]) {
-  localStorage.setItem(storageKey, serializePlans(scenarios));
+export function savePlanData(data: PlanData) {
+  localStorage.setItem(storageKey, serializePlanData(data));
 }
 
 export function clearPlans() {

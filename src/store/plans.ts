@@ -1,14 +1,15 @@
 import { createStore } from "zustand/vanilla";
 import { createId } from "@/lib/create-id";
-import { clearPlans, loadPlans, savePlans, validateBalances } from "@/lib/storage/local";
+import { clearPlans, loadPlanData, savePlanData, validateBalances } from "@/lib/storage/local";
 import { createPlanSync, type CloudConnection, type SyncPhase } from "@/lib/storage/plan-sync";
-import type { Scenario } from "@/types/scenario";
+import type { PlanData } from "@/types/plan-data";
+import type { Scenario, Won } from "@/types/scenario";
 
 type Update = (scenario: Scenario) => Scenario;
 type StorageIssue = "load" | "save" | null;
 
 export type PlanStore = {
-  scenarios: Scenario[];
+  data: PlanData;
   ready: boolean;
   storageIssue: StorageIssue;
   syncPhase: SyncPhase | null;
@@ -19,32 +20,37 @@ export type PlanStore = {
   createPlan: (name: string, source?: Pick<Scenario, "events" | "items" | "taxMode" | "customTaxBasisPoints">) => string;
   updatePlan: (id: string, update: Update) => string | null;
   removePlan: (id: string) => void;
-  importPlans: (plans: Scenario[]) => number;
+  importData: (incoming: PlanData) => { added: number; skipped: number; balanceAdded: boolean };
+  setCurrentBalance: (amount: Won | undefined) => void;
   clear: () => boolean;
 };
 
 export function createPlansStore(cloud?: CloudConnection) {
   let starting = false;
   const store = createStore<PlanStore>()((set, get) => {
-    function commit(scenarios: Scenario[]) {
+    function commit(data: PlanData) {
       if (sync) {
-        sync.stage(scenarios);
+        sync.stage(data);
         return;
       }
       let storageIssue = get().storageIssue;
       if (storageIssue !== "load") {
         try {
-          savePlans(scenarios);
+          savePlanData(data);
           storageIssue = null;
         } catch {
           storageIssue = "save";
         }
       }
-      set({ scenarios, storageIssue });
+      set({ data, storageIssue });
+    }
+
+    function commitScenarios(scenarios: Scenario[]) {
+      commit({ ...get().data, scenarios });
     }
 
     return {
-      scenarios: [],
+      data: { scenarios: [] },
       ready: false,
       storageIssue: null,
       syncPhase: cloud ? "loading" : null,
@@ -61,7 +67,7 @@ export function createPlansStore(cloud?: CloudConnection) {
         }
         if (get().ready) return;
         try {
-          set({ scenarios: loadPlans(), ready: true });
+          set({ data: loadPlanData(), ready: true });
         } catch {
           set({ ready: true, storageIssue: "load" });
         }
@@ -72,11 +78,11 @@ export function createPlansStore(cloud?: CloudConnection) {
         const scenario: Scenario = {
           events: [], items: [], taxMode: "none", ...source, id, name, createdAt: now, updatedAt: now,
         };
-        commit([scenario, ...get().scenarios]);
+        commitScenarios([scenario, ...get().data.scenarios]);
         return id;
       },
       updatePlan: (id, update) => {
-        const scenarios = get().scenarios;
+        const scenarios = get().data.scenarios;
         const current = scenarios.find((scenario) => scenario.id === id);
         if (!current) return "시나리오를 찾을 수 없어요.";
         const next = { ...update(current), updatedAt: new Date().toISOString() };
@@ -86,25 +92,32 @@ export function createPlansStore(cloud?: CloudConnection) {
           if (error instanceof RangeError) return error.message;
           throw error;
         }
-        commit(scenarios.map((scenario) => scenario.id === id ? next : scenario));
+        commitScenarios(scenarios.map((scenario) => scenario.id === id ? next : scenario));
         return null;
       },
-      removePlan: (id) => commit(get().scenarios.filter((scenario) => scenario.id !== id)),
-      importPlans: (plans) => {
-        const scenarios = get().scenarios;
+      removePlan: (id) => commitScenarios(get().data.scenarios.filter((scenario) => scenario.id !== id)),
+      importData: (incoming) => {
+        const { scenarios, currentBalance } = get().data;
         const existingIds = new Set(scenarios.map(({ id }) => id));
-        const added = plans.filter(({ id }) => !existingIds.has(id));
-        if (added.length) commit([...added, ...scenarios]);
-        return added.length;
+        const added = incoming.scenarios.filter(({ id }) => !existingIds.has(id));
+        const balanceAdded = currentBalance === undefined && incoming.currentBalance !== undefined;
+        if (added.length || balanceAdded) {
+          commit({ scenarios: [...added, ...scenarios], currentBalance: currentBalance ?? incoming.currentBalance });
+        }
+        return { added: added.length, skipped: incoming.scenarios.length - added.length, balanceAdded };
+      },
+      setCurrentBalance: (amount) => {
+        const currentBalance = amount === undefined ? undefined : { amount, recordedAt: new Date().toISOString() };
+        commit({ ...get().data, currentBalance });
       },
       clear: () => {
         if (sync) {
-          commit([]);
+          commit({ scenarios: [] });
           return true;
         }
         try {
           clearPlans();
-          set({ scenarios: [], storageIssue: null });
+          set({ data: { scenarios: [] }, storageIssue: null });
           return true;
         } catch {
           if (get().storageIssue !== "load") set({ storageIssue: "save" });
@@ -113,8 +126,8 @@ export function createPlansStore(cloud?: CloudConnection) {
       },
     };
   });
-  const sync = cloud ? createPlanSync(cloud, ({ phase, plans, draftIssue }) => {
-    store.setState({ syncPhase: phase, draftIssue, ready: plans !== undefined, scenarios: plans ?? [] });
+  const sync = cloud ? createPlanSync(cloud, ({ phase, data, draftIssue }) => {
+    store.setState({ syncPhase: phase, draftIssue, ready: data !== undefined, data: data ?? { scenarios: [] } });
   }) : null;
   return store;
 }
