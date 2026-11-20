@@ -19,6 +19,7 @@ export function EventDialog({ event, draftAmount, onSave, onClose }: {
     const data = new FormData(submission.currentTarget);
     const label = String(data.get("label") ?? "").trim();
     const date = String(data.get("date") ?? "");
+    const note = String(data.get("note") ?? "").trim();
     const amount = parseRange(String(data.get("min") ?? ""), String(data.get("max") ?? ""));
     if (!label) return setError("입금 이름을 입력해 주세요.");
     if (date && !parseCalendarDate(date)) return setError("올바른 입금일을 입력해 주세요.");
@@ -29,6 +30,7 @@ export function EventDialog({ event, draftAmount, onSave, onClose }: {
       amount,
       date: date || null,
       certainty: data.get("certainty") === "uncertain" ? "uncertain" : "confirmed",
+      note: note || undefined,
     });
     if (issue) setError(issue);
     else onClose();
@@ -54,6 +56,10 @@ export function EventDialog({ event, draftAmount, onSave, onClose }: {
             </select>
           </label>
         </div>
+        <label className="field">
+          메모 <span className="optional">선택</span>
+          <textarea name="note" rows={2} maxLength={500} defaultValue={event?.note} />
+        </label>
         <FormActions error={error} label={event ? "입금 저장" : "입금 추가"} onCancel={onClose} />
       </form>
     </Dialog>

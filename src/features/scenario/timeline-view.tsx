@@ -16,6 +16,7 @@ type TimelineActions = {
 function EventGroup({ group, actions }: { group: TimelineGroup; actions: TimelineActions }) {
   const { event, balance, amount, items } = group;
   const taxChanged = amount.min !== event.amount.min || amount.max !== event.amount.max;
+  const manual = items.filter(({ fixedExpenseId }) => !fixedExpenseId);
   return (
     <article className="event-card">
       <div className="event-head">
@@ -31,6 +32,7 @@ function EventGroup({ group, actions }: { group: TimelineGroup; actions: Timelin
             {event.date ?? "시기 미정"} · 입금 {formatRange(event.amount)}만원
             {taxChanged && " · 세후 " + formatRange(amount) + "만원"}
           </p>
+          {event.note && <p className="item-note">{event.note}</p>}
         </div>
         <div className="entry-actions">
           <button type="button" className="btn btn-quiet" aria-label={event.label + " 입금 수정"} onClick={() => actions.editEvent(event)}>수정</button>
@@ -43,12 +45,12 @@ function EventGroup({ group, actions }: { group: TimelineGroup; actions: Timelin
       </div>
       {items.length > 0 && (
         <ol className="item-list">
-          {items.map(({ item, amount, balance }, index) => (
+          {items.map(({ item, amount, balance, fixedExpenseId }) => (
             <li className="item-row" key={item.id}>
               <div className="entry-main">
                 <div className="entry-title">
                   <h4>{item.label}</h4>
-                  <span className="badge badge-kind">{kindLabels[item.kind]}</span>
+                  <span className="badge badge-kind">{fixedExpenseId ? "월 고정지출" : kindLabels[item.kind]}</span>
                 </div>
                 <p className="meta">
                   {formatRange(amount)}만원
@@ -59,16 +61,16 @@ function EventGroup({ group, actions }: { group: TimelineGroup; actions: Timelin
                 </p>
                 {item.note && <p className="item-note">{item.note}</p>}
               </div>
-              <div className="entry-actions">
-                {items.length > 1 && (
+              {!fixedExpenseId && <div className="entry-actions">
+                {manual.length > 1 && (
                   <>
-                    <button type="button" className="btn btn-quiet order-button" aria-label={item.label + " 위로 이동"} disabled={index === 0} onClick={() => actions.moveItem(item, -1)}>↑</button>
-                    <button type="button" className="btn btn-quiet order-button" aria-label={item.label + " 아래로 이동"} disabled={index === items.length - 1} onClick={() => actions.moveItem(item, 1)}>↓</button>
+                    <button type="button" className="btn btn-quiet order-button" aria-label={item.label + " 위로 이동"} disabled={item.id === manual[0].item.id} onClick={() => actions.moveItem(item, -1)}>↑</button>
+                    <button type="button" className="btn btn-quiet order-button" aria-label={item.label + " 아래로 이동"} disabled={item.id === manual.at(-1)?.item.id} onClick={() => actions.moveItem(item, 1)}>↓</button>
                   </>
                 )}
                 <button type="button" className="btn btn-quiet" aria-label={item.label + " 항목 수정"} onClick={() => actions.editItem(event, item)}>수정</button>
                 <button type="button" className="btn btn-quiet" aria-label={item.label + " 항목 삭제"} onClick={() => actions.deleteItem(item)}>삭제</button>
-              </div>
+              </div>}
               <div className="entry-balance">
                 <span>항목 후 잔액</span>
                 <BalanceText balance={balance} />
