@@ -6,6 +6,7 @@ import { ConfirmAction } from "@/components/confirm-action";
 import { downloadPlanJson } from "@/features/export/download-json";
 import { ImportDialog } from "@/features/export/import-dialog";
 import { calculateTimeline } from "@/lib/calc/balance";
+import { eventPlanningMonth } from "@/lib/calc/monthly-overview";
 import { loadPlanData } from "@/lib/storage/local";
 import { usePlans } from "@/store/provider";
 import type { PlanData } from "@/types/plan-data";
@@ -32,6 +33,7 @@ export function Dashboard({ month, setMonth }: { month: string; setMonth: (month
   const [importStatus, setImportStatus] = useState("");
   const { base, details } = getMonthlyWorkspace(data.scenarios, month);
   const timeline = base && calculateTimeline(base);
+  const pending = base?.events.filter((event) => event.date === null && eventPlanningMonth(base, event) === month) ?? [];
   const close = () => setDialog(null);
 
   function editMonthlyPlan() {
@@ -68,7 +70,7 @@ export function Dashboard({ month, setMonth }: { month: string; setMonth: (month
     <>
       <div className="page-heading"><h1>월별 가계 계획</h1></div>
       <div className="grid gap-3 lg:grid-cols-[minmax(0,3fr)_minmax(0,1fr)]">
-        <MonthlyOverview timeline={timeline} month={month} setMonth={setMonth} />
+        <MonthlyOverview timeline={timeline} month={month} setMonth={setMonth} pending={pending} />
         <CurrentBalanceCard />
       </div>
       <MonthlySpending timeline={timeline} month={month} onEdit={editMonthlyPlan} />

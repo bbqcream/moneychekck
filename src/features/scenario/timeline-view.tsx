@@ -45,7 +45,7 @@ function EventGroup({ group, actions, drag, openMove }: {
             {monthlySalary && <span className="badge badge-kind">고정 월급</span>}
           </div>
           <p className="meta">
-            {event.date ?? "시기 미정"} · 입금 {formatRange(event.amount)}만원
+            {event.date ?? "날짜 미정"} · 입금 {formatRange(event.amount)}만원
             {taxChanged && " · 세후 " + formatRange(amount) + "만원"}
           </p>
           {event.note && <p className="item-note">{event.note}</p>}
@@ -131,7 +131,7 @@ export function TimelineView({ groups, actions }: { groups: TimelineGroup[]; act
         <p className="meta">‘이동’을 잡아 다른 입금 카드에 놓거나, 눌러서 이동할 입금을 고르세요.</p>
       )}
       {dated.map((group) => <EventGroup key={group.event.id} group={group} actions={actions} drag={drag} openMove={openMove} />)}
-      {undated.length > 0 && <h3 className="timeline-divider">시기 미정</h3>}
+      {undated.length > 0 && <h3 className="timeline-divider">날짜 미정 입금</h3>}
       {undated.map((group) => <EventGroup key={group.event.id} group={group} actions={actions} drag={drag} openMove={openMove} />)}
       {moving && <ItemMoveDialog item={moving} events={groups.map(({ event }) => event)} onMove={move} onClose={() => setMoving(undefined)} />}
     </div>

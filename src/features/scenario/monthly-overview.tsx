@@ -3,11 +3,13 @@ import type { Timeline } from "@/lib/calc/balance";
 import { formatRange } from "@/lib/calc/money";
 import { isMonth } from "@/lib/calc/monthly";
 import { stepMonth, summarizeMonth } from "@/lib/calc/monthly-overview";
+import type { PayEvent } from "@/types/scenario";
 
-export function MonthlyOverview({ timeline, month, setMonth }: {
+export function MonthlyOverview({ timeline, month, setMonth, pending }: {
   timeline?: Timeline;
   month: string;
   setMonth: (month: string) => void;
+  pending: PayEvent[];
 }) {
   const previous = stepMonth(month, -1);
   const next = stepMonth(month, 1);
@@ -28,6 +30,17 @@ export function MonthlyOverview({ timeline, month, setMonth }: {
           <button type="button" className="btn btn-secondary" aria-label="다음 달" onClick={() => setMonth(next)} disabled={next === month}>→</button>
         </div>
       </div>
+      {pending.length > 0 && (
+        <div className="mt-4 border-t border-line pt-3">
+          <h3 className="mb-2 text-sm">날짜 미정 입금</h3>
+          <ul className="space-y-2">
+            {pending.map((event) => <li className="flex flex-wrap justify-between gap-2 text-sm" key={event.id}>
+              <span className="wrap-anywhere">{event.label}</span><span className="font-semibold">{formatRange(event.amount)}만원</span>
+            </li>)}
+          </ul>
+          <p className="meta mt-2">입금일을 정하면 해당 월의 잔액에 반영돼요.</p>
+        </div>
+      )}
       <div aria-live="polite">
         {totals ? (
           <>

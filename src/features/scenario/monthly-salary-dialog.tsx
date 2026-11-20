@@ -2,7 +2,8 @@ import { useState, type FormEvent } from "react";
 import { Dialog } from "@/components/dialog";
 import { FormActions } from "@/components/form-actions";
 import { formatManwon, parseManwon, parseScaled, toManwonInput } from "@/lib/calc/money";
-import { isSalaryPeriod, maxSalaryMonths } from "@/lib/calc/monthly";
+import { isMonth, isSalaryPeriod, maxSalaryMonths } from "@/lib/calc/monthly";
+import { stepMonth } from "@/lib/calc/monthly-overview";
 import { calculateHourlySalary, parseWorkHours } from "@/lib/calc/work-pay";
 import type { HourlySalary, MonthlySalary } from "@/types/scenario";
 
@@ -14,8 +15,8 @@ export function MonthlySalaryDialog({ salary, onSave, onClose }: {
   const [error, setError] = useState("");
   const [useHourly, setUseHourly] = useState(!!salary?.hourly);
   const [fixedAmount, setFixedAmount] = useState(salary ? toManwonInput(salary.amount) : "");
-  const [startMonth, setStartMonth] = useState(salary?.startMonth ?? "");
-  const [schedule, setSchedule] = useState<HourlySalary["schedule"]>(salary?.hourly?.schedule ?? "current-month");
+  const [startMonth, setStartMonth] = useState(() => salary && (salary.hourly?.schedule === "current-month" ? salary.startMonth : stepMonth(salary.startMonth, -1)) || "");
+  const [schedule, setSchedule] = useState<HourlySalary["schedule"]>(salary?.hourly?.schedule ?? "previous-month");
   const [rate, setRate] = useState(salary?.hourly ? String(salary.hourly.hourlyWon) : "");
   const [hours, setHours] = useState(salary?.hourly ? String(salary.hourly.hourHundredths / 100) : "");
   const [manualDays, setManualDays] = useState(salary?.hourly?.schedule === "manual" ? String(salary.hourly.days) : "");
@@ -27,7 +28,9 @@ export function MonthlySalaryDialog({ salary, onSave, onClose }: {
     if (schedule !== "manual") hourly = { schedule, hourHundredths, hourlyWon };
     else if (days !== null) hourly = { schedule, hourHundredths, hourlyWon, days };
   }
-  const preview = useHourly && hourly ? calculateHourlySalary(hourly, startMonth) : null;
+  const nextMonthPay = !useHourly || schedule !== "current-month";
+  const payMonth = (workMonth: string) => isMonth(workMonth) && nextMonthPay ? stepMonth(workMonth, 1) : workMonth;
+  const preview = useHourly && hourly ? calculateHourlySalary(hourly, payMonth(startMonth)) : null;
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -35,16 +38,18 @@ export function MonthlySalaryDialog({ salary, onSave, onClose }: {
     const label = String(data.get("label") ?? "").trim();
     const day = parseScaled(String(data.get("day") ?? ""), 0);
     const endMonth = String(data.get("endMonth") ?? "");
+    const firstPayMonth = payMonth(startMonth);
+    const lastPayMonth = payMonth(endMonth);
     if (!label) return setError("월급 이름을 입력해 주세요.");
     if (day === null || day < 1 || day > 31) return setError("지급일을 1~31 사이의 날짜로 입력해 주세요.");
-    if (!isSalaryPeriod(startMonth, endMonth)) {
-      return setError(`시작월과 종료월을 순서대로 입력해 주세요. 최대 ${maxSalaryMonths}개월까지 설정할 수 있어요.`);
+    if (!isSalaryPeriod(startMonth, endMonth) || (nextMonthPay && lastPayMonth === endMonth)) {
+      return setError(`근무 시작월과 종료월을 순서대로 입력해 주세요. 최대 ${maxSalaryMonths}개월까지 설정할 수 있어요.`);
     }
     const amount = useHourly ? preview?.amount : parseManwon(fixedAmount);
     if (amount == null || amount <= 0) {
       return setError(useHourly ? "시급, 하루 근무시간, 근무일수를 확인해 주세요. 계산한 월급은 0원보다 커야 해요." : "월급을 0보다 큰 금액으로 입력해 주세요.");
     }
-    const issue = onSave({ label, amount, day, startMonth, endMonth, hourly: useHourly ? hourly : undefined });
+    const issue = onSave({ label, amount, day, startMonth: firstPayMonth, endMonth: lastPayMonth, hourly: useHourly ? hourly : undefined });
     if (issue) setError(issue);
     else onClose();
   }
@@ -81,8 +86,8 @@ export function MonthlySalaryDialog({ salary, onSave, onClose }: {
                 const value = event.target.value;
                 if (value === "manual" || value === "current-month" || value === "previous-month") setSchedule(value);
               }}>
-                <option value="current-month">지급월 평일 자동 계산</option>
-                <option value="previous-month">전월 평일 자동 계산</option>
+                <option value="previous-month">평일 자동 계산 · 다음 달 지급</option>
+                <option value="current-month">평일 자동 계산 · 근무월 지급</option>
                 <option value="manual">근무일수 직접 입력</option>
               </select>
             </label>
@@ -90,7 +95,7 @@ export function MonthlySalaryDialog({ salary, onSave, onClose }: {
               <label className="field">매달 일하는 날 (1~31일)
                 <input name="manualDays" inputMode="numeric" value={manualDays} onChange={(event) => setManualDays(event.target.value)} placeholder="예: 16" required />
               </label>
-            ) : <p className="meta">주말과 한국 공휴일을 제외해요. 11월에 일하고 12월에 받는다면 전월을 선택하세요.</p>}
+            ) : <p className="meta">입력한 근무월의 평일을 계산하고 한국 공휴일을 제외해요.</p>}
           </>
         ) : (
           <label className="field">월급 (만원)
@@ -98,11 +103,11 @@ export function MonthlySalaryDialog({ salary, onSave, onClose }: {
           </label>
         )}
         <div className="form-grid">
-          <label className="field">시작월
+          <label className="field">근무 시작월
             <input name="startMonth" type="month" placeholder="YYYY-MM" value={startMonth} onChange={(event) => setStartMonth(event.target.value)} required />
           </label>
-          <label className="field">종료월
-            <input name="endMonth" type="month" placeholder="YYYY-MM" defaultValue={salary?.endMonth} required />
+          <label className="field">근무 종료월
+            <input name="endMonth" type="month" placeholder="YYYY-MM" defaultValue={salary && (salary.hourly?.schedule === "current-month" ? salary.endMonth : stepMonth(salary.endMonth, -1))} required />
           </label>
         </div>
         {useHourly && (
@@ -112,7 +117,7 @@ export function MonthlySalaryDialog({ salary, onSave, onClose }: {
             {preview?.missingHolidays && <p className="meta w-full">첫 근무월은 공휴일 자료가 없어 주말만 제외했어요.</p>}
           </div>
         )}
-        <p className="meta">지정한 날짜가 없는 달에는 말일에 반영해요. 이미 월급을 입력한 달이 있다면 시작월을 확인해 주세요.</p>
+        <p className="meta">{nextMonthPay ? "근무한 달의 월급을 다음 달에 반영해요. 예: 12월 근무 → 1월 지급." : "근무한 달에 월급을 반영해요."} 지정한 지급일이 없으면 그달 말일에 반영해요.</p>
         <FormActions error={error} onCancel={onClose} />
       </form>
     </Dialog>

@@ -18,6 +18,7 @@ function isAmount(value: unknown): value is RangeAmount {
 function isEvent(value: unknown): value is PayEvent {
   return isRecord(value) && isText(value.id) && isText(value.label) && isAmount(value.amount) &&
     (value.date === null || (typeof value.date === "string" && parseCalendarDate(value.date) !== null)) &&
+    (value.plannedMonth === undefined || (typeof value.plannedMonth === "string" && isMonth(value.plannedMonth))) &&
     (value.certainty === "confirmed" || value.certainty === "uncertain") &&
     (value.note === undefined || typeof value.note === "string");
 }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { calculateTimeline } from "@/lib/calc/balance";
 import { splitSavingsAmount } from "@/lib/calc/monthly";
-import { stepMonth, summarizeMonth } from "@/lib/calc/monthly-overview";
+import { eventPlanningMonth, stepMonth, summarizeMonth } from "@/lib/calc/monthly-overview";
 import { getMonthlyWorkspace } from "@/features/scenario/monthly-workspace";
 import { summarizePriorities } from "@/lib/calc/priorities";
 import { compareTimelines } from "@/lib/calc/compare";
@@ -22,6 +22,13 @@ const grant: PayEvent = {
 };
 
 describe("월별 보기", () => {
+  it("날짜 미정 입금은 보관한 월에서 찾을 수 있고 월말 합계에는 들어가지 않는다", () => {
+    const pending = { ...grant, plannedMonth: "2027-01" };
+    const scenario = { ...paycheck, events: [...paycheck.events, pending] };
+    expect(eventPlanningMonth(scenario, pending)).toBe("2027-01");
+    expect(eventPlanningMonth(scenario, grant)).toBe(paycheck.createdAt.slice(0, 7));
+    expect(summarizeMonth(calculateTimeline(scenario), "2027-01").income.max).toBe(0n);
+  });
   it("기본 계획과 선택한 달의 세부 시나리오를 구분하고 기존 계획도 날짜로 찾는다", () => {
     const base = { ...paycheck, id: "base", monthScope: "base" };
     const november = { ...paycheck, id: "november", monthScope: "2026-11" };

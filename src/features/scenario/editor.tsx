@@ -6,7 +6,7 @@ import { ConfirmAction } from "@/components/confirm-action";
 import { MemoDialog } from "@/features/export/memo-dialog";
 import { formatMemo } from "@/features/export/memo";
 import { calculateTimeline, itemsForEvent } from "@/lib/calc/balance";
-import { summarizeMonth } from "@/lib/calc/monthly-overview";
+import { eventPlanningMonth, summarizeMonth } from "@/lib/calc/monthly-overview";
 import { usePlans } from "@/store/provider";
 import type { Item, PayEvent, RangeAmount, Scenario } from "@/types/scenario";
 import { CurrentBalanceCard } from "./current-balance-card";
@@ -41,18 +41,21 @@ export function Editor({ scenario, month, focusMonth }: { scenario: Scenario; mo
   };
   const timeline = calculateTimeline(scenario);
   const displayedMonth = showAll ? undefined : focusMonth;
-  const groups = displayedMonth ? timeline.groups.filter(({ event }) => event.date?.startsWith(displayedMonth)) : timeline.groups;
+  const groups = displayedMonth ? timeline.groups.filter(({ event }) => eventPlanningMonth(scenario, event) === displayedMonth) : timeline.groups;
   const finalBalance = displayedMonth ? summarizeMonth(timeline, displayedMonth).closing : timeline.groups.length ? timeline.finalBalance : undefined;
   const visibleTimeline = { groups, finalBalance: finalBalance ?? timeline.finalBalance };
   const defaultMonth = focusMonth ?? (scenario.monthScope && scenario.monthScope !== "base" ? scenario.monthScope : month);
 
   function saveEvent(event: PayEvent) {
-    return update((plan) => ({
-      ...plan,
-      events: plan.events.some(({ id }) => id === event.id)
-        ? plan.events.map((existing) => existing.id === event.id ? event : existing)
-        : [...plan.events, event],
-    }));
+    return update((plan) => {
+      const previous = plan.events.find(({ id }) => id === event.id);
+      const plannedMonth = event.date ? undefined : previous ? eventPlanningMonth(plan, previous) : defaultMonth;
+      const saved = { ...event, plannedMonth };
+      return {
+        ...plan,
+        events: previous ? plan.events.map((existing) => existing.id === event.id ? saved : existing) : [...plan.events, saved],
+      };
+    });
   }
 
   function saveItem(event: PayEvent, item: Omit<Item, "afterEventId" | "order">) {
@@ -98,7 +101,7 @@ export function Editor({ scenario, month, focusMonth }: { scenario: Scenario; mo
       <a className="back-link" href={focusMonth ? "#/?month=" + focusMonth : "#/"}>월별 계획으로</a>
       <div className="page-heading">
         <div>
-          <h1>{scenario.name}</h1>
+          <h1>{focusMonth ? `${focusMonth.slice(0, 4)}년 ${Number(focusMonth.slice(5))}월 수입·지출` : scenario.name}</h1>
           <p>입금 순서대로 계획을 적고, 항목을 처리할 때마다 남는 돈을 확인하세요.</p>
         </div>
         <button type="button" className="btn btn-secondary" onClick={() => setDialog({ type: "name" })}>이름 수정</button>

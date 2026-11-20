@@ -25,7 +25,7 @@ export function MonthlySalaryCard({ scenario, collapsible = false }: { scenario?
             시급 {hourly.hourlyWon.toLocaleString("ko-KR")}원 · 하루 {hourly.hourHundredths / 100}시간 · {hourly.schedule === "manual"
               ? `월 ${hourly.days}일` : hourly.schedule === "previous-month" ? "전월 평일" : "지급월 평일"}
           </p>}
-          <p className="meta">{salary.startMonth} ~ {salary.endMonth}</p>
+          <p className="meta">지급 기간 {salary.startMonth} ~ {salary.endMonth}</p>
         </div>
       ) : <p className="meta mb-3">매달 들어올 월급을 시나리오 잔액에 반영해요.</p>}
       <div className="button-row">

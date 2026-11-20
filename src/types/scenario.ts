@@ -8,6 +8,7 @@ export type PayEvent = {
   label: string;
   amount: RangeAmount;
   date: string | null;
+  plannedMonth?: string;
   certainty: Certainty;
   note?: string;
 };

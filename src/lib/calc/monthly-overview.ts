@@ -1,4 +1,15 @@
 import type { Balance, Timeline } from "./balance";
+import type { PayEvent, Scenario } from "@/types/scenario";
+import { isMonth } from "./monthly";
+
+export function eventPlanningMonth(scenario: Scenario, event: PayEvent) {
+  if (event.date) return event.date.slice(0, 7);
+  if (event.plannedMonth) return event.plannedMonth;
+  if (scenario.monthScope && isMonth(scenario.monthScope)) return scenario.monthScope;
+  const index = scenario.events.findIndex(({ id }) => id === event.id);
+  const preceding = index > 0 ? scenario.events.slice(0, index).findLast(({ date }) => date !== null) : undefined;
+  return preceding?.date?.slice(0, 7) ?? scenario.createdAt.slice(0, 7);
+}
 
 export function stepMonth(month: string, direction: -1 | 1) {
   const date = new Date(month + "-01T00:00:00Z");
