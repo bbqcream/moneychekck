@@ -65,14 +65,13 @@
   .danger-text { @apply text-danger enabled:hover:bg-danger-soft enabled:hover:text-danger; }
   .button-row { @apply flex flex-wrap items-center gap-2.5; }
   .panel { @apply rounded-2xl border border-line bg-paper; }
-  .spending-grid { @apply grid-cols-[minmax(0,1fr)_minmax(0,43%)] gap-x-3 gap-y-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,0.5fr)_minmax(0,0.75fr)] sm:gap-x-5; }
   .spending-event { @apply overflow-hidden rounded-2xl border border-line bg-paper shadow-xs; }
   .spending-event-head {
     @apply flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-line bg-canvas px-3 py-3 sm:px-4;
   }
   .spending-list { @apply grid gap-2 p-2 sm:p-3; }
   .spending-item {
-    @apply relative grid items-start rounded-xl border border-line bg-paper px-3 py-3 shadow-xs sm:items-center sm:px-4;
+    @apply relative grid grid-cols-1 items-start gap-3 rounded-xl border border-line bg-paper px-3 py-3 shadow-xs sm:grid-cols-2 sm:items-center sm:gap-5 sm:px-4;
   }
   .spending-item::before {
     content: "";
@@ -98,11 +97,12 @@
   .spending-kind-badge.spending-transfer { @apply bg-canvas text-muted; }
   .spending-priority-badge { @apply border border-line bg-canvas text-muted; }
   .spending-plan-amount {
-    @apply self-start text-right text-base font-bold leading-tight tabular-nums wrap-anywhere sm:self-center sm:text-lg;
+    @apply text-base font-bold leading-tight tabular-nums wrap-anywhere;
   }
-  .spending-balance {
-    @apply col-span-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 rounded-lg bg-canvas px-2.5 py-2 text-sm sm:col-span-1 sm:justify-end sm:text-right;
+  .spending-metrics {
+    @apply grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] gap-3 rounded-lg bg-canvas px-3 py-2.5 text-sm sm:gap-4;
   }
+  .spending-metrics dt { @apply mb-1 text-xs font-medium text-muted; }
   .badge { @apply inline-flex shrink-0 items-center rounded-full px-2 py-1 text-xs leading-none font-semibold; }
   .badge-good { @apply bg-good-soft text-good; }
   .badge-warn, .badge-pending { @apply bg-warn-soft text-warn; }
