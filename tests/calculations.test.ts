@@ -67,6 +67,29 @@ describe("월별 보기", () => {
 });
 
 describe("잔액 타임라인", () => {
+  it("예산순은 고정지출과 최대 가격을 반영해 감당 가능한 항목을 기존 우선순위대로 먼저 보여준다", () => {
+    const event = { ...paycheck.events[0], date: "2027-01-10", amount: { min: 100000, max: 110000 } };
+    const rows = [
+      { id: "optional", priority: "P3", amount: { min: 20000, max: 20000 } },
+      { id: "large", priority: "P1", amount: { min: 70000, max: 95000 } },
+      { id: "medium", priority: "P2", amount: { min: 50000, max: 60000 } },
+      { id: "small", priority: "P1", amount: { min: 10000, max: 20000 } },
+    ] as const;
+    const scenario = { ...paycheck, events: [event],
+      monthlyExpenses: [{ id: "fixed", label: "고정지출", rates: [{ startMonth: "2027-01", amount: { min: 10000, max: 10000 } }] }],
+      items: rows.map((row, order) => ({ ...paycheck.items[0], ...row, afterEventId: event.id, order })),
+    };
+    const original = calculateTimeline(scenario);
+    const sorted = calculateTimeline(scenario, "all", "budget");
+    expect(sorted.groups[0].items.map(({ item, balance, budgetDeferred }) => [item.id, balance.worst, !!budgetDeferred])).toEqual([
+      ["monthly-expense-fixed-2027-01", 90000, false], ["small", 70000, false], ["medium", 10000, false],
+      ["large", -85000, true], ["optional", -105000, true],
+    ]);
+    expect(sorted.finalBalance).toEqual(original.finalBalance);
+    expect(original.groups[0].items[1].item.id).toBe("optional");
+    const higherPay = { ...scenario, events: [{ ...event, amount: { min: 220000, max: 220000 } }] };
+    expect(calculateTimeline(higherPay, "all", "budget").groups[0].items.slice(1).map(({ item }) => item.id)).toEqual(["large", "small", "medium", "optional"]);
+  });
   it("교통비는 지급일과 관계없이 해당 달의 출근일수로 한 번만 계산한다", () => {
     const events = ["2026-11-10", "2026-12-10", "2027-01-10", "2027-01-25"].map((date, index) => ({ ...paycheck.events[0], id: `income-${index}`, date }));
     const scenario = {

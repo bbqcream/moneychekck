@@ -27,7 +27,7 @@ type TimelineEdits = {
   deleteEvent: (event: PayEvent) => void;
   editItem: (event: PayEvent, item: Item) => void;
   deleteItem: (item: Item) => void;
-  moveItem: (item: Item, direction: -1 | 1) => void;
+  moveItem?: (item: Item, direction: -1 | 1) => void;
 };
 
 function EventGroup({ group, edits, drag, openMove }: {
@@ -39,6 +39,7 @@ function EventGroup({ group, edits, drag, openMove }: {
   const { event, balance, amount, items, monthlySalary } = group;
   const taxChanged = amount.min !== event.amount.min || amount.max !== event.amount.max;
   const manual = items.filter(({ monthlyRuleId }) => !monthlyRuleId);
+  const reorderItem = edits?.moveItem;
   return (
     <article className={"event-card" + (drag.targetId === event.id ? " ring-2 ring-brand" : "")} data-drop-event={event.id}>
       <div className="event-head">
@@ -68,7 +69,7 @@ function EventGroup({ group, edits, drag, openMove }: {
       </div>
       {items.length > 0 && (
         <ol className="item-list">
-          {items.map(({ item, amount, balance, monthlyRuleId }) => (
+          {items.map(({ item, amount, balance, monthlyRuleId, budgetDeferred }) => (
             <li className={"item-row" + (drag.draggedId === item.id ? " opacity-60" : "")} key={item.id}>
               <div className="entry-main">
                 <div className="entry-title">
@@ -78,6 +79,7 @@ function EventGroup({ group, edits, drag, openMove }: {
                     {(monthlyRuleId && monthlyItemLabels[item.kind]) || kindLabels[item.kind]}
                   </span>
                   {item.priority && <span className="badge badge-kind">{priorityLabels[item.priority]}</span>}
+                  {budgetDeferred && <span className="badge badge-warn">예산 초과</span>}
                 </div>
                 <p className="meta">
                   계획 금액 {formatRange(amount)}만원
@@ -91,10 +93,10 @@ function EventGroup({ group, edits, drag, openMove }: {
               {!monthlyRuleId && (openMove || edits) && <div className="entry-actions">
                 {openMove && <button type="button" className="btn btn-quiet cursor-grab! touch-none select-none active:cursor-grabbing!"
                   aria-label={item.label + " 다른 입금으로 이동"} {...drag.handle(item, openMove)}>↔ 이동</button>}
-                {edits && manual.length > 1 && (
+                {reorderItem && manual.length > 1 && (
                   <>
-                    <button type="button" className="btn btn-quiet order-button" aria-label={item.label + " 위로 이동"} disabled={item.id === manual[0].item.id} onClick={() => edits.moveItem(item, -1)}>↑</button>
-                    <button type="button" className="btn btn-quiet order-button" aria-label={item.label + " 아래로 이동"} disabled={item.id === manual.at(-1)?.item.id} onClick={() => edits.moveItem(item, 1)}>↓</button>
+                    <button type="button" className="btn btn-quiet order-button" aria-label={item.label + " 위로 이동"} disabled={item.id === manual[0].item.id} onClick={() => reorderItem(item, -1)}>↑</button>
+                    <button type="button" className="btn btn-quiet order-button" aria-label={item.label + " 아래로 이동"} disabled={item.id === manual.at(-1)?.item.id} onClick={() => reorderItem(item, 1)}>↓</button>
                   </>
                 )}
                 {edits && <>

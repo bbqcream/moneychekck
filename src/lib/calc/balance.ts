@@ -2,12 +2,14 @@ import type { IncomeFilter, Item, PayEvent, RangeAmount, Scenario, Won } from "@
 import { checkedWon, formatManwon } from "./money";
 import { totalItemAmount } from "./range";
 import { monthlyItems, monthlySalaryEvents } from "./monthly";
+import { orderItemsForBudget } from "./priorities";
 import { applyTax } from "./tax";
 
 export type Balance = { best: Won; worst: Won; shortage: boolean };
-export type TimelineItem = { item: Item; amount: RangeAmount; balance: Balance; monthlyRuleId?: string };
+export type TimelineItem = { item: Item; amount: RangeAmount; balance: Balance; monthlyRuleId?: string; budgetDeferred?: true };
 export type TimelineGroup = { event: PayEvent; amount: RangeAmount; balance: Balance; items: TimelineItem[]; monthlySalary?: true };
 export type Timeline = { groups: TimelineGroup[]; finalBalance: Balance };
+export type TimelineOrder = "input" | "budget";
 
 export function formatBalance(balance: { best: number | bigint; worst: number | bigint }, signed = false): string {
   const best = formatManwon(balance.best, signed);
@@ -18,7 +20,7 @@ export function itemsForEvent(items: Item[], eventId: string): Item[] {
   return items.filter((item) => item.afterEventId === eventId).sort((a, b) => a.order - b.order);
 }
 
-export function calculateTimeline(scenario: Scenario, filter: IncomeFilter = "all"): Timeline {
+export function calculateTimeline(scenario: Scenario, filter: IncomeFilter = "all", order: TimelineOrder = "input"): Timeline {
   const salaryEvents = monthlySalaryEvents(scenario.monthlySalary);
   const salaryIds = new Set(salaryEvents.map(({ id }) => id));
   const events = [...scenario.events, ...salaryEvents]
@@ -41,13 +43,16 @@ export function calculateTimeline(scenario: Scenario, filter: IncomeFilter = "al
     best += BigInt(amount.max);
     worst += BigInt(amount.min);
     const afterIncome = balance();
-    const planned = itemsForEvent(scenario.items, event.id).map((item) => ({ item, monthlyRuleId: undefined }));
-    const items = [...(fixed?.get(event.id) ?? []), ...planned].map(({ item, monthlyRuleId }) => {
-      const total = totalItemAmount(item);
-      best -= BigInt(total.min);
-      worst -= BigInt(total.max);
-      return { item, amount: total, balance: balance(), monthlyRuleId };
-    });
+    function applyItem(entry: Omit<TimelineItem, "balance">): TimelineItem {
+      best -= BigInt(entry.amount.min);
+      worst -= BigInt(entry.amount.max);
+      return { ...entry, balance: balance() };
+    }
+    const fixedItems = (fixed?.get(event.id) ?? [])
+      .map(({ item, monthlyRuleId }) => applyItem({ item, amount: totalItemAmount(item), monthlyRuleId }));
+    const planned = itemsForEvent(scenario.items, event.id).map((item) => ({ item, amount: totalItemAmount(item) }));
+    const ordered = order === "budget" ? orderItemsForBudget(planned, worst) : planned;
+    const items = [...fixedItems, ...ordered.map(applyItem)];
     const group: TimelineGroup = { event, amount, balance: afterIncome, items };
     if (salaryIds.has(event.id)) group.monthlySalary = true;
     return group;

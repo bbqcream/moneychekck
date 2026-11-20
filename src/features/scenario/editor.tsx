@@ -5,7 +5,7 @@ import { BalanceText } from "@/components/balance-text";
 import { ConfirmAction } from "@/components/confirm-action";
 import { MemoDialog } from "@/features/export/memo-dialog";
 import { formatMemo } from "@/features/export/memo";
-import { calculateTimeline, itemsForEvent } from "@/lib/calc/balance";
+import { calculateTimeline, itemsForEvent, type TimelineOrder } from "@/lib/calc/balance";
 import { eventPlanningMonth, summarizeMonth } from "@/lib/calc/monthly-overview";
 import { usePlans } from "@/store/provider";
 import type { Item, PayEvent, RangeAmount, Scenario } from "@/types/scenario";
@@ -35,12 +35,13 @@ export function Editor({ scenario, month, focusMonth }: { scenario: Scenario; mo
   const [dialog, setDialog] = useState<EditorDialog | null>(null);
   const [error, setError] = useState("");
   const [showAll, setShowAll] = useState(false);
+  const [itemOrder, setItemOrder] = useState<TimelineOrder>("budget");
   const close = () => setDialog(null);
   const update = (change: (plan: Scenario) => Scenario) => {
     setError("");
     return updatePlan(scenario.id, change);
   };
-  const timeline = calculateTimeline(scenario);
+  const timeline = calculateTimeline(scenario, "all", itemOrder);
   const displayedMonth = showAll ? undefined : focusMonth;
   const groups = displayedMonth ? timeline.groups.filter(({ event }) => eventPlanningMonth(scenario, event) === displayedMonth) : timeline.groups;
   const finalBalance = displayedMonth ? summarizeMonth(timeline, displayedMonth).closing : timeline.groups.length ? timeline.finalBalance : undefined;
@@ -121,6 +122,14 @@ export function Editor({ scenario, month, focusMonth }: { scenario: Scenario; mo
               <button type="button" className="btn btn-primary" onClick={() => setDialog({ type: "event" })}>+ 입금 추가</button>
             </div>
           </div>
+          {groups.some(({ items }) => items.some(({ monthlyRuleId }) => !monthlyRuleId)) && (
+            <label className="field mb-3 max-w-64">항목 정렬
+              <select value={itemOrder} onChange={(event) => setItemOrder(event.target.value === "input" ? "input" : "budget")}>
+                <option value="budget">예산순 · 감당 가능한 항목 우선</option>
+                <option value="input">입력 순서</option>
+              </select>
+            </label>
+          )}
           {groups.length ? (
             <TimelineView groups={groups} onMove={(item, eventId) => moveToEvent(scenario.id, item.id, eventId)} edits={{
               addItem: (event) => setDialog({ type: "item", event }),
@@ -128,7 +137,7 @@ export function Editor({ scenario, month, focusMonth }: { scenario: Scenario; mo
               deleteEvent: (event) => setDialog({ type: "delete-event", event }),
               editItem: (event, item) => setDialog({ type: "item", event, item }),
               deleteItem: (item) => setDialog({ type: "delete-item", item }),
-              moveItem,
+              moveItem: itemOrder === "input" ? moveItem : undefined,
             }} />
           ) : (
             <div className="empty-panel">

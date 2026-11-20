@@ -33,7 +33,7 @@ export function Dashboard({ month, setMonth }: { month: string; setMonth: (month
   const [dialog, setDialog] = useState<"new" | "clear" | "import" | null>(null);
   const [importStatus, setImportStatus] = useState("");
   const { base, details } = getMonthlyWorkspace(data.scenarios, month);
-  const timeline = base && calculateTimeline(base);
+  const timeline = base && calculateTimeline(base, "all", "budget");
   const monthGroups = base && timeline ? timeline.groups.filter(({ event }) => eventPlanningMonth(base, event) === month) : [];
   const pending = base?.events.filter((event) => event.date === null && eventPlanningMonth(base, event) === month) ?? [];
   const close = () => setDialog(null);
