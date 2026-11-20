@@ -19,7 +19,7 @@ pnpm dev
 | --- | --- | --- |
 | P1 | 같은 네트워크의 폰에서 입력·비교, 월 고정지출, JSON 불러오기·내보내기 | 구현 |
 | P2 | 기존 Vercel HTTPS 주소에서 로그인하고 폰·PC 동기화, 홈 화면 바로가기 | 로그인·동기화 구현, 배포 설정 필요 |
-| P3 | 오프라인 재실행과 토스 현재 잔고 연동 검토 | 계획 |
+| P3 | 오프라인 재실행과 토스뱅크 현재 잔고 표시 | 오프라인 재실행 계획, 실잔고 조회는 오픈뱅킹 이용 승인 필요 |
 
 ### 같은 네트워크의 폰에서 열기
 
@@ -69,4 +69,12 @@ pnpm test
 pnpm build
 ~~~
 
-pnpm build는 out/에 정적 파일을 생성합니다. Vercel에서 Next.js 프로젝트로 연결하고 pnpm build로 빌드합니다. 목록, 편집, 비교 화면은 URL 해시를 사용해, 앱을 한 번 열면 브라우저 안에서 화면을 이동하고 계산할 수 있습니다.
+pnpm build는 out/에 정적 파일을 생성합니다. Vercel은 vercel.json의 Output Directory 설정에 따라 out/을 배포합니다. 이전 커밋에서 STATIC_BUILD_NO_OUT_DIR 오류가 발생하면 이 설정이 포함된 새 커밋으로 배포하거나, Vercel 프로젝트의 Build & Development Settings에서 Output Directory를 out으로 지정합니다.
+
+목록, 편집, 비교 화면은 URL 해시를 사용해, 앱을 한 번 열면 브라우저 안에서 화면을 이동하고 계산할 수 있습니다.
+
+## 토스뱅크 현재 잔고 연동 검토
+
+토스뱅크는 금융결제원 오픈뱅킹 참가기관입니다. 실계좌 잔고를 조회하려면 앱 운영자가 금융결제원과 이용계약을 체결하고 승인을 받은 뒤 사용자의 계좌 등록 동의를 받아야 합니다. [금융결제원 오픈뱅킹 안내](https://openapi.kftc.or.kr/service/openBanking) · [잔액조회 API](https://developers.kftc.or.kr/dev/openapi/open-banking/balance)
+
+공식 테스트 환경에서는 개발자 계정에 API 키를 등록하고 등록된 테스트 데이터로 잔액조회를 검증할 수 있습니다. 페이플랜에서 실제 잔고를 표시할 때는 사용자 동의로 조회한 값과 조회 시각을 예상 잔액 옆에 표시합니다. [금융결제원 테스트 시작 안내](https://developers.kftc.or.kr/dev/starter/starter)
