@@ -15,6 +15,8 @@ export function EventDialog({ event, draftAmount, draftDate, onSave, onClose }: 
   onClose: () => void;
 }) {
   const [error, setError] = useState("");
+  const [unknownDate, setUnknownDate] = useState(event ? event.date === null : false);
+  const [dateInput, setDateInput] = useState(event ? event.date ?? "" : draftDate ?? "");
   function submit(submission: FormEvent<HTMLFormElement>) {
     submission.preventDefault();
     const data = new FormData(submission.currentTarget);
@@ -46,8 +48,8 @@ export function EventDialog({ event, draftAmount, draftDate, onSave, onClose }: 
         <RangeFields amount={event?.amount ?? draftAmount} label="입금액" />
         <div className="form-grid">
           <label className="field">
-            입금일 <span className="optional">비우면 시기 미정</span>
-            <input type="date" name="date" defaultValue={event ? event.date ?? "" : draftDate} />
+            입금일 <span className="optional">비워도 돼요</span>
+            <input type="date" name="date" disabled={unknownDate} value={unknownDate ? "" : dateInput} onChange={(event) => setDateInput(event.target.value)} />
           </label>
           <label className="field">
             확실성
@@ -57,6 +59,10 @@ export function EventDialog({ event, draftAmount, draftDate, onSave, onClose }: 
             </select>
           </label>
         </div>
+        <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm font-medium">
+          <input type="checkbox" className="size-4 accent-brand" checked={unknownDate} onChange={(event) => setUnknownDate(event.target.checked)} />
+          날짜 미정
+        </label>
         <label className="field">
           메모 <span className="optional">선택</span>
           <textarea name="note" rows={2} maxLength={500} defaultValue={event?.note} />
